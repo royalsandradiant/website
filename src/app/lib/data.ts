@@ -1,0 +1,340 @@
+'use server';
+
+import { prisma } from './prisma';
+import type { Product, Category, ProductWithCategory, LeafCategory } from './definitions';
+import { buildCategoryTree, flattenCategoryTree, getLeafCategories } from './category';
+
+function transformProduct(product: any | null): Product | null {
+  if (!product) return null;
+  
+  // Handle transition from imagePath to images array
+  const images = product.images && product.images.length > 0 
+    ? product.images 
+    : (product.imagePath ? [product.imagePath] : []);
+
+  return {
+    ...product,
+    images,
+    price: Number(product.price),
+    isOnSale: product.isOnSale || false,
+    isFeatured: product.isFeatured || false,
+    salePrice: product.salePrice ? Number(product.salePrice) : null,
+  };
+}
+
+function transformProductWithCategory(product: any | null): ProductWithCategory | null {
+  if (!product) return null;
+  
+  const base = transformProduct(product);
+  if (!base) return null;
+
+  return {
+    ...base,
+    categoryRef: product.categoryRef || null,
+  };
+}
+
+// ===================
+// Category Functions
+// ===================
+
+export async function fetchCategories() {
+  try {
+    const categories = await prisma.category.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+    return categories as Category[];
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch categories.');
+  }
+}
+
+export async function fetchVisibleCategories() {
+  try {
+    const categories = await prisma.category.findMany({
+      where: { isVisible: true },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+    return categories as Category[];
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch visible categories.');
+  }
+}
+
+export async function fetchCategoryTree() {
+  try {
+    const categories = await fetchVisibleCategories();
+    return buildCategoryTree(categories);
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch category tree.');
+  }
+}
+
+export async function fetchAllCategoryTree() {
+  try {
+    const categories = await fetchCategories();
+    return buildCategoryTree(categories);
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch all category tree.');
+  }
+}
+
+export async function fetchCategoryById(id: string) {
+  try {
+    const category = await prisma.category.findUnique({
+      where: { id },
+      include: {
+        parent: true,
+        children: {
+          orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        },
+        _count: { select: { products: true } },
+      },
+    });
+    return category;
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch category.');
+  }
+}
+
+export async function fetchCategoryBySlugPath(slugPath: string) {
+  try {
+    const category = await prisma.category.findUnique({
+      where: { slugPath },
+      include: {
+        parent: true,
+        children: {
+          where: { isVisible: true },
+          orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        },
+      },
+    });
+    return category;
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch category by slug path.');
+  }
+}
+
+export async function fetchLeafCategories(): Promise<LeafCategory[]> {
+  try {
+    const categories = await fetchCategories();
+    const tree = buildCategoryTree(categories);
+    return getLeafCategories(tree);
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch leaf categories.');
+  }
+}
+
+export async function fetchAllCategoriesFlat(): Promise<LeafCategory[]> {
+  try {
+    const categories = await fetchCategories();
+    const tree = buildCategoryTree(categories);
+    return flattenCategoryTree(tree);
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch flattened categories.');
+  }
+}
+
+export async function fetchProductsByCategoryPath(slugPath: string) {
+  try {
+    // Get the category and all its descendants
+    const categories = await prisma.category.findMany({
+      where: {
+        OR: [
+          { slugPath },
+          { slugPath: { startsWith: `${slugPath}/` } },
+        ],
+      },
+      select: { id: true },
+    });
+    
+    const categoryIds = categories.map(c => c.id);
+    
+    if (categoryIds.length === 0) {
+      return [];
+    }
+
+    const products = await prisma.product.findMany({
+      where: { categoryId: { in: categoryIds } },
+      include: { categoryRef: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return products.map(transformProductWithCategory);
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch products by category path.');
+  }
+}
+
+// ===================
+// Product Functions
+// ===================
+
+export async function fetchProducts() {
+  try {
+    const products = await prisma.product.findMany({
+      include: { categoryRef: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return products.map(transformProductWithCategory);
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch products.');
+  }
+}
+
+export async function fetchFeaturedProducts() {
+  try {
+    const products = await prisma.product.findMany({
+      where: { isFeatured: true },
+      include: { categoryRef: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return products.map(transformProductWithCategory);
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch featured products.');
+  }
+}
+
+export async function fetchProductById(id: string) {
+  try {
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: { categoryRef: true },
+    });
+    return transformProductWithCategory(product);
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch product.');
+  }
+}
+
+/**
+ * @deprecated Use fetchProductsByCategoryPath instead
+ */
+export async function fetchProductsByCategory(category: string) {
+  try {
+    // Try new category system first - find by slugPath
+    const categoryRecord = await prisma.category.findUnique({
+      where: { slugPath: category.toLowerCase() },
+    });
+    
+    if (categoryRecord) {
+      return fetchProductsByCategoryPath(category.toLowerCase());
+    }
+    
+    // Fall back to legacy string-based filtering
+    const products = await prisma.product.findMany({
+      include: { categoryRef: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    const filtered = products.filter(p => 
+      p.category?.toLowerCase() === category.toLowerCase()
+    );
+    return filtered.map(transformProductWithCategory);
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch products by category.');
+  }
+}
+
+/**
+ * @deprecated Use fetchProductsByCategoryPath instead
+ */
+export async function fetchProductsBySubcategory(category: string, subcategory: string) {
+  try {
+    // Try new category system first
+    const slugPath = `${category.toLowerCase()}/${subcategory.toLowerCase().replace(/\s+/g, '-')}`;
+    const categoryRecord = await prisma.category.findUnique({
+      where: { slugPath },
+    });
+    
+    if (categoryRecord) {
+      return fetchProductsByCategoryPath(slugPath);
+    }
+    
+    // Fall back to legacy string-based filtering
+    const products = await prisma.product.findMany({
+      include: { categoryRef: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    const filtered = products.filter(p => 
+      p.category?.toLowerCase() === category.toLowerCase() &&
+      p.subcategory?.toLowerCase() === subcategory.toLowerCase()
+    );
+    return filtered.map(transformProductWithCategory);
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch products by subcategory.');
+  }
+}
+
+export async function fetchSaleProducts(categorySlugPath?: string) {
+  try {
+    let whereClause: any = { isOnSale: true };
+    
+    if (categorySlugPath) {
+      // Get all category IDs for this path and descendants
+      const categories = await prisma.category.findMany({
+        where: {
+          OR: [
+            { slugPath: categorySlugPath },
+            { slugPath: { startsWith: `${categorySlugPath}/` } },
+          ],
+        },
+        select: { id: true },
+      });
+      
+      const categoryIds = categories.map(c => c.id);
+      
+      if (categoryIds.length > 0) {
+        whereClause = {
+          isOnSale: true,
+          categoryId: { in: categoryIds },
+        };
+      }
+    }
+
+    const products = await prisma.product.findMany({
+      where: whereClause,
+      include: { categoryRef: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return products.map(transformProductWithCategory);
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch sale products.');
+  }
+}
+
+export async function fetchOrders() {
+  try {
+    const orders = await prisma.order.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { items: { include: { product: true } } }
+    });
+    
+    return orders.map(order => ({
+      ...order,
+      totalAmount: Number(order.totalAmount),
+      items: order.items.map(item => ({
+        ...item,
+        price: Number(item.price),
+        product: transformProduct(item.product)
+      }))
+    }));
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch orders.');
+  }
+}
