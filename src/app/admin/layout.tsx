@@ -2,8 +2,17 @@ import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Package, ShoppingCart, LogOut, LayoutDashboard, FolderTree } from 'lucide-react';
+import { Package, ShoppingCart, LayoutDashboard, FolderTree } from 'lucide-react';
 import { LogoutButton } from './logout-button';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Admin Dashboard',
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function AdminLayout({
   children,
