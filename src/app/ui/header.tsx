@@ -60,18 +60,6 @@ export default function Header({ categories }: HeaderProps) {
               <span className="absolute -bottom-1 left-0 w-0 h-px bg-primary transition-all duration-300 group-hover:w-full group-focus-visible:w-full"></span>
             </Link>
 
-            {/* Middle: logo.png */}
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-              <Image
-                src="/logo.png"
-                alt="logo"
-                width={200}
-                height={200}
-                className="h-24 w-auto object-contain"
-                priority
-              />
-            </div>
-
             {/* Right: Cart & Mobile Menu */}
             <div className="flex items-center gap-4">
               <Link
@@ -296,7 +284,7 @@ export default function Header({ categories }: HeaderProps) {
               </Link>
               <Link
                 href="/combos"
-                className="py-3 text-lg font-semibold text-purple-600 hover:text-purple-500 transition-colors"
+                className="py-3 text-lg font-semibold text-primary hover:text-primary/80 transition-colors"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Combos
