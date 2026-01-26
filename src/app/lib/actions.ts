@@ -1005,9 +1005,12 @@ export async function createStripeCheckoutSession(
 ): Promise<{ url: string | null; error?: string }> {
   try {
     // Get base URL with fallback for local development
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
     // Ensure URL has proper scheme
-    const appUrl = baseUrl.startsWith('http') ? baseUrl : `https://${baseUrl}`;
+    const appUrl = baseUrl?.startsWith('http') ? baseUrl : `https://${baseUrl}`;
+    if (!appUrl) {
+      return { url: null, error: 'Base URL is not set' };
+    }
 
     // Find existing customer or create new one to pre-fill Stripe checkout
     let customerId: string | undefined;
