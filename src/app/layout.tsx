@@ -4,6 +4,8 @@ import "./globals.css";
 import { CartProvider } from "@/app/lib/cart-context";
 import { PageTransition } from "@/app/ui/page-transition";
 
+import { getBaseUrl } from "@/app/lib/utils";
+
 const italiana = Italiana({
   variable: "--font-italiana",
   weight: "400",
@@ -18,7 +20,7 @@ const mulish = Mulish({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"),
+  metadataBase: new URL(getBaseUrl()),
   title: {
     default: "Royals and Radiant | by Upasana and Foram",
     template: "%s | Royals and Radiant",

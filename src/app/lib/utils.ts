@@ -26,3 +26,18 @@ export function slugify(str: string): string {
 export function buildSlugPath(parentSlugPath: string | null, slug: string): string {
   return parentSlugPath ? `${parentSlugPath}/${slug}` : slug;
 }
+
+/**
+ * Get the base URL for the application
+ */
+export function getBaseUrl() {
+  const url = process.env.NEXT_PUBLIC_APP_URL || 
+              process.env.NEXT_PUBLIC_BASE_URL || 
+              (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+
+  if (url) {
+    return url.startsWith("http") ? url : `https://${url}`;
+  }
+
+  return "http://localhost:3000";
+}

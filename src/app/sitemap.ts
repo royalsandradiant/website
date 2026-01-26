@@ -1,9 +1,10 @@
 import type { MetadataRoute } from "next";
 import { fetchVisibleCategories, fetchProducts } from "./lib/data";
 import type { Category, ProductWithCategory } from "./lib/definitions";
+import { getBaseUrl } from "./lib/utils";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const baseUrl = getBaseUrl();
 
   // Static routes
   const staticRoutes: MetadataRoute.Sitemap = [

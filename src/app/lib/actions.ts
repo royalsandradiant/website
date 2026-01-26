@@ -10,7 +10,7 @@ import { Resend } from 'resend';
 import Stripe from 'stripe';
 
 import type { State, CategoryState } from './definitions';
-import { slugify, buildSlugPath } from './utils';
+import { slugify, buildSlugPath, getBaseUrl } from './utils';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
@@ -1005,9 +1005,7 @@ export async function createStripeCheckoutSession(
 ): Promise<{ url: string | null; error?: string }> {
   try {
     // Get base URL with fallback for local development
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
-    // Ensure URL has proper scheme
-    const appUrl = baseUrl?.startsWith('http') ? baseUrl : `https://${baseUrl}`;
+    const appUrl = getBaseUrl();
     if (!appUrl) {
       return { url: null, error: 'Base URL is not set' };
     }
