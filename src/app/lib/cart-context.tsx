@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 
 export type CartItem = {
   id: string;
@@ -8,6 +8,8 @@ export type CartItem = {
   price: number;
   quantity: number;
   imagePath: string;
+  comboId?: string;
+  originalProductId?: string;
 };
 
 type CartContextType = {

@@ -18,6 +18,7 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState(product?.categoryId || '');
   const [isOnSale, setIsOnSale] = useState(product?.isOnSale || false);
   const [isFeatured, setIsFeatured] = useState(product?.isFeatured || false);
+  const [isCombo, setIsCombo] = useState(product?.isCombo || false);
   const [currentImages, setCurrentImages] = useState<string[]>(product?.images || []);
 
   const removeCurrentImage = (url: string) => {
@@ -156,6 +157,26 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
               </p>
             </div>
           )}
+        </div>
+
+        {/* Combo Section */}
+        <div className="mb-4 p-4 border border-dashed border-purple-300 rounded-lg bg-white">
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="isCombo"
+              name="isCombo"
+              checked={isCombo}
+              onChange={(e) => setIsCombo(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+            />
+            <label htmlFor="isCombo" className="text-sm font-medium">
+              Show on Combo Page
+            </label>
+          </div>
+          <p className="mt-1 text-xs text-gray-500 ml-7">
+            Products marked for combo will appear on the Combos page where customers can select 3 items for a bundle deal
+          </p>
         </div>
 
         {/* Stock */}

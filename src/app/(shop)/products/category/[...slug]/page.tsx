@@ -2,14 +2,17 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { fetchCategoryBySlugPath, fetchProductsByCategoryPath, fetchCategoryTree } from '@/app/lib/data';
 import { ProductGrid } from '@/app/ui/product-grid';
+import { ProductSort } from '@/app/ui/product-sort';
 import { buildBreadcrumbFromPath } from '@/app/lib/category';
 
 interface CategoryPageProps {
   params: Promise<{ slug: string[] }>;
+  searchParams: Promise<{ sort?: string }>;
 }
 
-export default async function CategoryPage({ params }: CategoryPageProps) {
+export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
   const { slug } = await params;
+  const { sort } = await searchParams;
   const slugPath = slug.join('/');
   
   const [category, products, categoryTree] = await Promise.all([
@@ -23,6 +26,24 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   }
 
   const breadcrumb = buildBreadcrumbFromPath(categoryTree, slugPath);
+
+  // Sorting logic
+  const sortedProducts = [...products];
+  if (sort === 'price-asc') {
+    sortedProducts.sort((a, b) => {
+      const priceA = a?.isOnSale && a?.salePrice ? a.salePrice : (a?.price || 0);
+      const priceB = b?.isOnSale && b?.salePrice ? b.salePrice : (b?.price || 0);
+      return priceA - priceB;
+    });
+  } else if (sort === 'price-desc') {
+    sortedProducts.sort((a, b) => {
+      const priceA = a?.isOnSale && a?.salePrice ? a.salePrice : (a?.price || 0);
+      const priceB = b?.isOnSale && b?.salePrice ? b.salePrice : (b?.price || 0);
+      return priceB - priceA;
+    });
+  } else if (sort === 'featured') {
+    sortedProducts.sort((a, b) => (b?.isFeatured ? 1 : 0) - (a?.isFeatured ? 1 : 0));
+  }
 
   return (
     <div className="min-h-screen bg-background pt-36 pb-20">
@@ -91,17 +112,18 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         </section>
       )}
 
-      {/* Results count */}
-      <div className="container mx-auto px-4 md:px-8 mb-8">
+      {/* Results count and Sort */}
+      <div className="container mx-auto px-4 md:px-8 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
         <p className="text-sm text-foreground/60">
           {products.length} {products.length === 1 ? 'product' : 'products'} found
         </p>
+        <ProductSort />
       </div>
 
       {/* Products Grid */}
       <section className="container mx-auto px-4 md:px-8">
-        {products.length > 0 ? (
-          <ProductGrid products={products} />
+        {sortedProducts.length > 0 ? (
+          <ProductGrid products={sortedProducts} />
         ) : (
           <div className="text-center py-20">
             <p className="font-display text-2xl text-foreground/40 italic mb-4">

@@ -63,7 +63,9 @@ export default function CheckoutForm() {
           name: item.name,
           price: item.price,
           quantity: item.quantity,
-          imagePath: item.imagePath,
+          images: item.imagePath ? [item.imagePath] : [],
+          comboId: item.comboId,
+          originalProductId: item.originalProductId,
         })),
         formData
       );

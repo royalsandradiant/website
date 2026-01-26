@@ -1,15 +1,34 @@
 import { fetchSaleProducts } from '@/app/lib/data';
 import type { ProductWithCategory } from '@/app/lib/definitions';
 import { ProductGrid } from '@/app/ui/product-grid';
+import { ProductSort } from '@/app/ui/product-sort';
 
 export default async function SalePage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string }>;
+  searchParams: Promise<{ category?: string; sort?: string }>;
 }) {
-  const { category } = await searchParams;
+  const { category, sort } = await searchParams;
   const products = await fetchSaleProducts(category);
   const validProducts = products.filter((p): p is ProductWithCategory => p !== null);
+
+  // Sorting logic
+  const sortedProducts = [...validProducts];
+  if (sort === 'price-asc') {
+    sortedProducts.sort((a, b) => {
+      const priceA = a.isOnSale && a.salePrice ? a.salePrice : a.price;
+      const priceB = b.isOnSale && b.salePrice ? b.salePrice : b.price;
+      return priceA - priceB;
+    });
+  } else if (sort === 'price-desc') {
+    sortedProducts.sort((a, b) => {
+      const priceA = a.isOnSale && a.salePrice ? a.salePrice : a.price;
+      const priceB = b.isOnSale && b.salePrice ? b.salePrice : b.price;
+      return priceB - priceA;
+    });
+  } else if (sort === 'featured') {
+    sortedProducts.sort((a, b) => (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0));
+  }
 
   return (
     <div className="min-h-screen bg-background pt-28 pb-20">
@@ -36,16 +55,24 @@ export default async function SalePage({
       {/* Decorative Divider */}
       <div className="container mx-auto px-8 mb-16">
         <div className="flex items-center justify-center gap-4">
-          <span className="h-[1px] w-16 bg-primary/30"></span>
+          <span className="h-px w-16 bg-primary/30"></span>
           <span className="text-primary text-2xl">✦</span>
-          <span className="h-[1px] w-16 bg-primary/30"></span>
+          <span className="h-px w-16 bg-primary/30"></span>
         </div>
+      </div>
+
+      {/* Results count and Sort */}
+      <div className="container mx-auto px-4 md:px-8 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
+        <p className="text-sm text-foreground/60">
+          {validProducts.length} {validProducts.length === 1 ? 'product' : 'products'} found
+        </p>
+        <ProductSort />
       </div>
 
       {/* Products Grid */}
       <section className="container mx-auto px-4 md:px-8">
-        {validProducts.length > 0 ? (
-          <ProductGrid products={validProducts} />
+        {sortedProducts.length > 0 ? (
+          <ProductGrid products={sortedProducts} />
         ) : (
           <div className="text-center py-20">
             <p className="font-display text-2xl text-foreground/40 italic mb-4">

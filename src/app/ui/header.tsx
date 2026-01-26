@@ -232,6 +232,16 @@ export default function Header({ categories }: HeaderProps) {
                 </Link>
               </motion.div>
 
+              {/* Combos */}
+              <motion.div whileHover={shouldReduceMotion ? {} : { y: -1 }}>
+                <Link
+                  href="/combos"
+                  className="px-4 py-3 text-sm font-bold tracking-wide text-primary hover:text-primary/80 transition-colors focus-visible:underline outline-none"
+                >
+                  COMBOS
+                </Link>
+              </motion.div>
+
               {/* About */}
               <motion.div whileHover={{ y: -1 }}>
                 <Link
@@ -283,6 +293,13 @@ export default function Header({ categories }: HeaderProps) {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Sale
+              </Link>
+              <Link
+                href="/combos"
+                className="py-3 text-lg font-semibold text-purple-600 hover:text-purple-500 transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Combos
               </Link>
 
               <div className="border-t border-border my-2"></div>

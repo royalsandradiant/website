@@ -19,6 +19,8 @@ function transformProduct(product: any | null): Product | null {
     isOnSale: product.isOnSale || false,
     isFeatured: product.isFeatured || false,
     salePrice: product.salePrice ? Number(product.salePrice) : null,
+    isCombo: product.isCombo || false,
+    comboPrice: product.comboPrice ? Number(product.comboPrice) : null,
   };
 }
 
@@ -336,5 +338,56 @@ export async function fetchOrders() {
   } catch (error) {
     console.error('Database Error:', error);
     throw new Error('Failed to fetch orders.');
+  }
+}
+
+export async function fetchComboProducts() {
+  try {
+    if (!prisma.product) {
+      console.warn('prisma.product is undefined.');
+      return [];
+    }
+
+    const products = await prisma.product.findMany({
+      where: { isCombo: true },
+      include: { categoryRef: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    return products.map(transformProductWithCategory);
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch combo products.');
+  }
+}
+
+export async function fetchComboSettings() {
+  try {
+    // Safety check for prisma.settings existence
+    if (!prisma.settings) {
+      console.warn('prisma.settings is undefined. This may be due to an outdated Prisma client.');
+      return { comboPrice: 100 };
+    }
+
+    let settings = await prisma.settings.findUnique({
+      where: { id: 'global' },
+    });
+    
+    if (!settings) {
+      // Create default settings if they don't exist
+      settings = await prisma.settings.create({
+        data: {
+          id: 'global',
+          comboPrice: 100,
+        },
+      });
+    }
+    
+    return {
+      comboPrice: Number(settings.comboPrice),
+    };
+  } catch (error) {
+    console.error('Database Error:', error);
+    // Fallback to default if there's an error
+    return { comboPrice: 100 };
   }
 }

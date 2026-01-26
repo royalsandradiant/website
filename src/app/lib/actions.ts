@@ -350,6 +350,7 @@ const ProductSchema = z.object({
     (val) => (val === '' || val === null || val === undefined ? null : Number(val)),
     z.number().positive('Sale price must be positive').nullable()
   ),
+  isCombo: z.boolean().default(false),
 });
 
 const CreateProduct = ProductSchema.omit({ id: true });
@@ -358,6 +359,7 @@ const UpdateProduct = ProductSchema.omit({ id: true });
 export async function createProduct(_prevState: State, formData: FormData) {
   const isOnSaleValue = formData.get('isOnSale') === 'on';
   const isFeaturedValue = formData.get('isFeatured') === 'on';
+  const isComboValue = formData.get('isCombo') === 'on';
   const salePriceValue = formData.get('salePrice');
   
   const validatedFields = CreateProduct.safeParse({
@@ -369,6 +371,7 @@ export async function createProduct(_prevState: State, formData: FormData) {
     isOnSale: isOnSaleValue,
     isFeatured: isFeaturedValue,
     salePrice: isOnSaleValue && salePriceValue ? salePriceValue : null,
+    isCombo: isComboValue,
   });
 
   if (!validatedFields.success) {
@@ -378,7 +381,7 @@ export async function createProduct(_prevState: State, formData: FormData) {
     };
   }
 
-  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice } = validatedFields.data;
+  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, isCombo } = validatedFields.data;
   
   // Validate category exists
   const category = await prisma.category.findUnique({
@@ -425,6 +428,7 @@ export async function createProduct(_prevState: State, formData: FormData) {
         isOnSale,
         isFeatured,
         salePrice: salePrice || null,
+        isCombo,
         images,
       },
     });
@@ -436,6 +440,7 @@ export async function createProduct(_prevState: State, formData: FormData) {
   revalidatePath('/admin');
   revalidatePath('/');
   revalidatePath('/sale');
+  revalidatePath('/combos');
   revalidatePath('/products/category', 'layout');
   redirect('/admin');
 }
@@ -443,6 +448,7 @@ export async function createProduct(_prevState: State, formData: FormData) {
 export async function updateProduct(id: string, _prevState: State, formData: FormData) {
   const isOnSaleValue = formData.get('isOnSale') === 'on';
   const isFeaturedValue = formData.get('isFeatured') === 'on';
+  const isComboValue = formData.get('isCombo') === 'on';
   const salePriceValue = formData.get('salePrice');
   
   const validatedFields = UpdateProduct.safeParse({
@@ -454,6 +460,7 @@ export async function updateProduct(id: string, _prevState: State, formData: For
     isOnSale: isOnSaleValue,
     isFeatured: isFeaturedValue,
     salePrice: isOnSaleValue && salePriceValue ? salePriceValue : null,
+    isCombo: isComboValue,
   });
 
   if (!validatedFields.success) {
@@ -463,7 +470,7 @@ export async function updateProduct(id: string, _prevState: State, formData: For
     };
   }
 
-  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice } = validatedFields.data;
+  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, isCombo } = validatedFields.data;
   
   // Validate category exists
   const category = await prisma.category.findUnique({
@@ -518,6 +525,7 @@ export async function updateProduct(id: string, _prevState: State, formData: For
         isOnSale,
         isFeatured,
         salePrice: salePrice || null,
+        isCombo,
         images,
       },
     });
@@ -529,6 +537,7 @@ export async function updateProduct(id: string, _prevState: State, formData: For
   revalidatePath('/admin');
   revalidatePath('/');
   revalidatePath('/sale');
+  revalidatePath('/combos');
   revalidatePath('/products/category', 'layout');
   redirect('/admin');
 }
@@ -976,6 +985,8 @@ export type CheckoutItem = {
   price: number;
   quantity: number;
   images?: string[];
+  comboId?: string;
+  originalProductId?: string;
 };
 
 export type ShippingInfo = {
@@ -1054,6 +1065,16 @@ export async function createStripeCheckoutSession(
 
     const orderId = `ORD-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
 
+    // Include combo information in metadata
+    const itemsMetadata = items.map(i => ({ 
+      id: i.id, 
+      quantity: i.quantity, 
+      price: i.price, 
+      name: i.name,
+      comboId: i.comboId || null,
+      originalProductId: i.originalProductId || null,
+    }));
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,
@@ -1070,7 +1091,7 @@ export async function createStripeCheckoutSession(
           city: shippingInfo.city,
           postalCode: shippingInfo.postalCode,
           country: shippingInfo.country,
-          items: JSON.stringify(items.map(i => ({ id: i.id, quantity: i.quantity, price: i.price, name: i.name }))),
+          items: JSON.stringify(itemsMetadata),
         },
       },
       metadata: {
@@ -1081,7 +1102,7 @@ export async function createStripeCheckoutSession(
         city: shippingInfo.city,
         postalCode: shippingInfo.postalCode,
         country: shippingInfo.country,
-        items: JSON.stringify(items.map(i => ({ id: i.id, quantity: i.quantity, price: i.price, name: i.name }))),
+        items: JSON.stringify(itemsMetadata),
       },
       shipping_address_collection: {
         allowed_countries: ['US', 'CA', 'GB', 'AU', 'IN'],
@@ -1268,7 +1289,7 @@ export async function handleStripeWebhook(payload: string, signature: string) {
         throw new Error('Missing metadata in session');
       }
       
-      const items: { id: string; quantity: number; price: number; name?: string }[] = JSON.parse(metadata.items);
+      const items: { id: string; quantity: number; price: number; name?: string; comboId?: string | null; originalProductId?: string | null }[] = JSON.parse(metadata.items);
       const totalAmount = (session.amount_total || 0) / 100;
       const customerEmail = session.customer_details?.email || session.customer_email || '';
       const customerName = metadata.customerName || session.customer_details?.name || '';
@@ -1289,18 +1310,22 @@ export async function handleStripeWebhook(payload: string, signature: string) {
           status: 'COMPLETED',
           items: {
             create: items.map((item) => ({
-              productId: item.id,
+              // Use originalProductId for combo items, otherwise use the regular id
+              productId: item.originalProductId || item.id,
               quantity: item.quantity,
               price: item.price,
+              comboId: item.comboId || null,
             })),
           },
         },
       });
 
       // Decrement stock for each purchased item
+      // For combo items, use the originalProductId
       for (const item of items) {
+        const productIdToUpdate = item.originalProductId || item.id;
         await prisma.product.update({
-          where: { id: item.id },
+          where: { id: productIdToUpdate },
           data: {
             stock: {
               decrement: item.quantity,
@@ -1365,5 +1390,28 @@ export async function handleStripeWebhook(payload: string, signature: string) {
   } catch (error) {
     console.error('Webhook error:', error);
     throw error;
+  }
+}
+
+// Combo Settings Actions
+export async function updateComboSettings(comboPrice: number) {
+  try {
+    if (!prisma.settings) {
+      console.warn('prisma.settings is undefined.');
+      return { success: false, error: 'Prisma client is outdated.' };
+    }
+
+    await prisma.settings.upsert({
+      where: { id: 'global' },
+      update: { comboPrice },
+      create: { id: 'global', comboPrice },
+    });
+    
+    revalidatePath('/admin');
+    revalidatePath('/combos');
+    return { success: true };
+  } catch (error) {
+    console.error('Database Error:', error);
+    return { success: false, error: 'Failed to update combo settings.' };
   }
 }

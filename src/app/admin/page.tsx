@@ -51,6 +51,9 @@ export default async function AdminDashboard() {
                     Featured
                   </th>
                   <th scope="col" className="px-3 py-5 font-medium">
+                    Combo
+                  </th>
+                  <th scope="col" className="px-3 py-5 font-medium">
                     Stock
                   </th>
                   <th scope="col" className="relative py-3 pl-6 pr-3">
@@ -111,6 +114,15 @@ export default async function AdminDashboard() {
                       {product.isFeatured ? (
                         <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
                           Featured
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3">
+                      {product.isCombo ? (
+                        <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">
+                          Combo
                         </span>
                       ) : (
                         <span className="text-gray-400">—</span>

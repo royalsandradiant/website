@@ -2,7 +2,7 @@ import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Package, ShoppingCart, LayoutDashboard, FolderTree } from 'lucide-react';
+import { Package, ShoppingCart, LayoutDashboard, FolderTree, Settings } from 'lucide-react';
 import { LogoutButton } from './logout-button';
 import type { Metadata } from 'next';
 
@@ -71,6 +71,13 @@ export default async function AdminLayout({
             >
               <ShoppingCart className="h-5 w-5" />
               Orders
+            </Link>
+            <Link 
+              href="/admin/settings" 
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md text-background/80 hover:bg-background/10 hover:text-background transition-colors"
+            >
+              <Settings className="h-5 w-5" />
+              Settings
             </Link>
           </nav>
         </div>

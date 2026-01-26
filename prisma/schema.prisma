@@ -97,6 +97,8 @@ model Product {
   isOnSale    Boolean     @default(false)
   isFeatured  Boolean     @default(false)
   salePrice   Decimal?
+  isCombo     Boolean     @default(false)
+  comboPrice  Decimal?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   OrderItems  OrderItem[]
@@ -126,4 +128,12 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int
   price     Decimal // Snapshot of price at purchase
+  comboId   String? // Track if this item was part of a combo purchase
+}
+
+model Settings {
+  id         String   @id @default("global")
+  comboPrice Decimal  @default(100)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
