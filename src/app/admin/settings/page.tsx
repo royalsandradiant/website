@@ -12,7 +12,7 @@ export default async function SettingsPage() {
         {/* Combo Settings */}
         <div className="rounded-lg bg-gray-50 p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-600">
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
                 <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
@@ -22,10 +22,10 @@ export default async function SettingsPage() {
             Combo Deal Settings
           </h2>
           <p className="text-sm text-gray-600 mb-6">
-            Configure the price for the 3-item combo deal. Customers can select any 3 products marked for combo at this special price.
+            Configure the discounts for combo deals. Customers can select 2 or 3 products marked for combo and receive a percentage discount.
           </p>
           
-          <ComboSettingsForm currentPrice={settings.comboPrice} />
+          <ComboSettingsForm currentDiscount2={settings.comboDiscount2} currentDiscount3={settings.comboDiscount3} />
         </div>
       </div>
     </div>

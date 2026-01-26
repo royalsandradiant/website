@@ -97,6 +97,7 @@ model Product {
   isOnSale    Boolean     @default(false)
   isFeatured  Boolean     @default(false)
   salePrice   Decimal?
+  salePercentage Int?
   isCombo     Boolean     @default(false)
   comboPrice  Decimal?
   createdAt   DateTime    @default(now())
@@ -132,8 +133,9 @@ model OrderItem {
 }
 
 model Settings {
-  id         String   @id @default("global")
-  comboPrice Decimal  @default(100)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id             String   @id @default("global")
+  comboDiscount2 Int      @default(10)
+  comboDiscount3 Int      @default(15)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

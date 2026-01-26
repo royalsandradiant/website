@@ -350,6 +350,10 @@ const ProductSchema = z.object({
     (val) => (val === '' || val === null || val === undefined ? null : Number(val)),
     z.number().positive('Sale price must be positive').nullable()
   ),
+  salePercentage: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? null : Number(val)),
+    z.number().min(0, 'Percentage must be at least 0').max(100, 'Percentage cannot exceed 100').nullable()
+  ),
   isCombo: z.boolean().default(false),
 });
 
@@ -361,6 +365,7 @@ export async function createProduct(_prevState: State, formData: FormData) {
   const isFeaturedValue = formData.get('isFeatured') === 'on';
   const isComboValue = formData.get('isCombo') === 'on';
   const salePriceValue = formData.get('salePrice');
+  const salePercentageValue = formData.get('salePercentage');
   
   const validatedFields = CreateProduct.safeParse({
     name: formData.get('name'),
@@ -371,6 +376,7 @@ export async function createProduct(_prevState: State, formData: FormData) {
     isOnSale: isOnSaleValue,
     isFeatured: isFeaturedValue,
     salePrice: isOnSaleValue && salePriceValue ? salePriceValue : null,
+    salePercentage: isOnSaleValue && salePercentageValue ? salePercentageValue : null,
     isCombo: isComboValue,
   });
 
@@ -381,7 +387,13 @@ export async function createProduct(_prevState: State, formData: FormData) {
     };
   }
 
-  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, isCombo } = validatedFields.data;
+  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage, isCombo } = validatedFields.data;
+  
+  // Calculate sale price if percentage is provided
+  let finalSalePrice = salePrice;
+  if (isOnSale && salePercentage !== null) {
+    finalSalePrice = price * (1 - salePercentage / 100);
+  }
   
   // Validate category exists
   const category = await prisma.category.findUnique({
@@ -427,7 +439,8 @@ export async function createProduct(_prevState: State, formData: FormData) {
         stock,
         isOnSale,
         isFeatured,
-        salePrice: salePrice || null,
+        salePrice: finalSalePrice || null,
+        salePercentage: salePercentage || null,
         isCombo,
         images,
       },
@@ -450,6 +463,7 @@ export async function updateProduct(id: string, _prevState: State, formData: For
   const isFeaturedValue = formData.get('isFeatured') === 'on';
   const isComboValue = formData.get('isCombo') === 'on';
   const salePriceValue = formData.get('salePrice');
+  const salePercentageValue = formData.get('salePercentage');
   
   const validatedFields = UpdateProduct.safeParse({
     name: formData.get('name'),
@@ -460,6 +474,7 @@ export async function updateProduct(id: string, _prevState: State, formData: For
     isOnSale: isOnSaleValue,
     isFeatured: isFeaturedValue,
     salePrice: isOnSaleValue && salePriceValue ? salePriceValue : null,
+    salePercentage: isOnSaleValue && salePercentageValue ? salePercentageValue : null,
     isCombo: isComboValue,
   });
 
@@ -470,7 +485,13 @@ export async function updateProduct(id: string, _prevState: State, formData: For
     };
   }
 
-  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, isCombo } = validatedFields.data;
+  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage, isCombo } = validatedFields.data;
+  
+  // Calculate sale price if percentage is provided
+  let finalSalePrice = salePrice;
+  if (isOnSale && salePercentage !== null) {
+    finalSalePrice = price * (1 - salePercentage / 100);
+  }
   
   // Validate category exists
   const category = await prisma.category.findUnique({
@@ -524,7 +545,8 @@ export async function updateProduct(id: string, _prevState: State, formData: For
         stock,
         isOnSale,
         isFeatured,
-        salePrice: salePrice || null,
+        salePrice: finalSalePrice || null,
+        salePercentage: salePercentage || null,
         isCombo,
         images,
       },
@@ -581,6 +603,7 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
     isOnSale: boolean;
     isFeatured?: boolean;
     salePrice?: number;
+    salePercentage?: number;
     imageFileNames: string[];
   }>;
 
@@ -615,7 +638,8 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
       stock: product.stock,
       isOnSale: product.isOnSale || false,
       isFeatured: product.isFeatured || false,
-      salePrice: product.isOnSale ? product.salePrice : null,
+      salePrice: product.isOnSale ? (product.salePrice ?? null) : null,
+      salePercentage: product.isOnSale ? (product.salePercentage ?? null) : null,
     });
 
     if (!validatedFields.success) {
@@ -664,7 +688,14 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
 
     // Create product in database
     try {
-      const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice } = validatedFields.data;
+      const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage } = validatedFields.data;
+      
+      // Calculate sale price if percentage is provided
+      let finalSalePrice = salePrice;
+      if (isOnSale && salePercentage !== null) {
+        finalSalePrice = price * (1 - salePercentage / 100);
+      }
+      
       await prisma.product.create({
         data: {
           name,
@@ -674,7 +705,8 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
           stock,
           isOnSale,
           isFeatured,
-          salePrice: salePrice || null,
+          salePrice: finalSalePrice || null,
+          salePercentage: salePercentage || null,
           images: productImages,
         },
       });
@@ -1395,7 +1427,7 @@ export async function handleStripeWebhook(payload: string, signature: string) {
 }
 
 // Combo Settings Actions
-export async function updateComboSettings(comboPrice: number) {
+export async function updateComboSettings(comboDiscount2: number, comboDiscount3: number) {
   try {
     if (!prisma.settings) {
       console.warn('prisma.settings is undefined.');
@@ -1404,8 +1436,8 @@ export async function updateComboSettings(comboPrice: number) {
 
     await prisma.settings.upsert({
       where: { id: 'global' },
-      update: { comboPrice },
-      create: { id: 'global', comboPrice },
+      update: { comboDiscount2, comboDiscount3 },
+      create: { id: 'global', comboDiscount2, comboDiscount3 },
     });
     
     revalidatePath('/admin');

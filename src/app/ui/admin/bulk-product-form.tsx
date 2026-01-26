@@ -18,6 +18,7 @@ type ProductRow = {
   isOnSale: boolean;
   isFeatured: boolean;
   salePrice: string;
+  salePercentage: string;
   imageFileNames: string[];
 };
 
@@ -31,6 +32,7 @@ const createEmptyProduct = (): ProductRow => ({
   isOnSale: false,
   isFeatured: false,
   salePrice: '',
+  salePercentage: '',
   imageFileNames: [],
 });
 
@@ -140,6 +142,7 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
       isOnSale: p.isOnSale,
       isFeatured: p.isFeatured,
       salePrice: p.isOnSale && p.salePrice ? parseFloat(p.salePrice) : undefined,
+      salePercentage: p.isOnSale && p.salePercentage ? parseInt(p.salePercentage) : undefined,
       imageFileNames: p.imageFileNames,
     }));
     formData.append('products', JSON.stringify(productsData));
@@ -352,14 +355,25 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                         <span className="text-xs">Sale</span>
                       </label>
                       {product.isOnSale && (
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={product.salePrice}
-                          onChange={(e) => updateProduct(product.id, 'salePrice', e.target.value)}
-                          placeholder="Sale price"
-                          className="w-full min-w-[70px] px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                        <div className="flex flex-col gap-1">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={product.salePercentage}
+                            onChange={(e) => updateProduct(product.id, 'salePercentage', e.target.value)}
+                            placeholder="% Off"
+                            className="w-full min-w-[70px] px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={product.salePrice}
+                            onChange={(e) => updateProduct(product.id, 'salePrice', e.target.value)}
+                            placeholder="Fixed $"
+                            className="w-full min-w-[70px] px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
                       )}
                     </div>
                   </td>

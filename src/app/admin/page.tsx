@@ -121,7 +121,7 @@ export default async function AdminDashboard() {
                     </td>
                     <td className="whitespace-nowrap px-3 py-3">
                       {product.isCombo ? (
-                        <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">
+                        <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
                           Combo
                         </span>
                       ) : (

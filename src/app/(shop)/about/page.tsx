@@ -29,50 +29,49 @@ export default function AboutPage() {
 
       {/* Story Section */}
       <section className="container mx-auto px-4 md:px-8 mb-20">
-        <div className="grid md:grid-cols-2 gap-12 items-center">
+        <div className="max-w-3xl mx-auto">
           <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
+            className="space-y-8"
           >
-            <div className="relative aspect-square bg-secondary rounded-lg overflow-hidden">
-              {/* <div className="w-full h-full bg-gradient-to-br from-accent/20 to-primary/10 flex items-center justify-center">
-                <span className="font-display text-6xl text-foreground/10">RR</span>
-              </div> */}
-              <Image src="/about.png" alt="About Royals and Radiant" fill className="object-cover" />
+            <div className="text-center">
+              <h2 className="font-display text-3xl md:text-4xl text-foreground mb-6">
+                Crafting Beauty Since Day One
+              </h2>
             </div>
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="space-y-6"
-          >
-            <h2 className="font-display text-3xl md:text-4xl text-foreground">
-              Crafting Beauty Since Day One
-            </h2>
-            <p className="text-foreground/70 leading-relaxed">
-              Royals and Radiant was born from a passion for exquisite craftsmanship and a deep 
-              appreciation for the art of adornment. Founded by Upasana and Foram, our name 
-              represents the royal and radiant beauty that every piece in our 
-              collection embodies.
-            </p>
-            <p className="text-foreground/70 leading-relaxed">
-              Every piece in our collection is carefully curated to bring you jewelry that 
-              resonates with your personal style. Whether you&apos;re drawn to timeless classics 
-              or contemporary designs, we have something that speaks to your soul.
-            </p>
-            <div className="flex gap-8 pt-4">
-              <div>
-                <span className="font-display text-4xl text-primary">500+</span>
-                <p className="text-sm text-foreground/50 mt-1">Unique Designs</p>
+            
+            <div className="space-y-6 text-foreground/70 leading-relaxed text-lg">
+              <p>
+                Royals and Radiant was born from a passion for exquisite craftsmanship and a deep 
+                appreciation for the art of adornment. Founded by Upasana and Foram, our name 
+                represents the royal and radiant beauty that every piece in our 
+                collection embodies.
+              </p>
+              <p>
+                Every piece in our collection is carefully curated to bring you jewelry that 
+                resonates with your personal style. Whether you&apos;re drawn to timeless classics 
+                or contemporary designs, we have something that speaks to your soul.
+              </p>
+              <p>
+                Our journey began with a simple belief: that high-quality, beautifully designed 
+                jewelry should be accessible to everyone who appreciates the finer things in life. 
+                We work closely with skilled artisans who use traditional techniques passed down 
+                through generations, blending them with modern aesthetics to create pieces that 
+                are both timeless and trend-setting.
+              </p>
+            </div>
+
+            <div className="flex justify-center gap-12 pt-8 border-t border-border">
+              <div className="text-center">
+                <span className="font-display text-5xl text-primary block mb-1">500+</span>
+                <p className="text-sm text-foreground/50 uppercase tracking-widest">Unique Designs</p>
               </div>
-              <div>
-                <span className="font-display text-4xl text-primary">1000+</span>
-                <p className="text-sm text-foreground/50 mt-1">Happy Customers</p>
+              <div className="text-center">
+                <span className="font-display text-5xl text-primary block mb-1">1000+</span>
+                <p className="text-sm text-foreground/50 uppercase tracking-widest">Happy Customers</p>
               </div>
             </div>
           </motion.div>

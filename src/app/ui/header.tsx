@@ -144,68 +144,69 @@ export default function Header({ categories }: HeaderProps) {
                   </Link>
 
                   <AnimatePresence>
-                    {activeDropdown === category.id && category.children.length > 0 && (
-                      <motion.div
-                        initial={
-                          shouldReduceMotion
-                            ? { opacity: 0 }
-                            : { opacity: 0, y: 10 }
-                        }
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={
-                          shouldReduceMotion
-                            ? { opacity: 0 }
-                            : { opacity: 0, y: 10 }
-                        }
-                        transition={{ duration: 0.15 }}
-                        className="absolute top-full left-0 mt-0 w-64 bg-card border border-border shadow-xl z-50"
-                        onMouseEnter={() => setActiveDropdown(category.id)}
-                        onMouseLeave={() => setActiveDropdown(null)}
-                        onBlur={(e) => {
-                          if (!e.currentTarget.contains(e.relatedTarget)) {
-                            setActiveDropdown(null);
+                    {activeDropdown === category.id &&
+                      category.children.length > 0 && (
+                        <motion.div
+                          initial={
+                            shouldReduceMotion
+                              ? { opacity: 0 }
+                              : { opacity: 0, y: 10 }
                           }
-                        }}
-                      >
-                        {/* Shop All Link */}
-                        <Link
-                          href={`/products/category/${category.slugPath}`}
-                          className="block px-5 py-3 text-sm font-semibold text-foreground hover:bg-secondary hover:text-primary transition-colors border-b border-border"
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={
+                            shouldReduceMotion
+                              ? { opacity: 0 }
+                              : { opacity: 0, y: 10 }
+                          }
+                          transition={{ duration: 0.15 }}
+                          className="absolute top-full left-0 mt-0 w-64 bg-card border border-border shadow-xl z-50"
+                          onMouseEnter={() => setActiveDropdown(category.id)}
+                          onMouseLeave={() => setActiveDropdown(null)}
+                          onBlur={(e) => {
+                            if (!e.currentTarget.contains(e.relatedTarget)) {
+                              setActiveDropdown(null);
+                            }
+                          }}
                         >
-                          Shop All {category.name}
-                        </Link>
-
-                        {/* Subcategory Header */}
-                        <div className="px-5 py-2 bg-secondary/50">
-                          <span className="text-xs font-semibold tracking-wider text-foreground/60 uppercase">
-                            Shop by Type
-                          </span>
-                        </div>
-
-                        {/* Subcategories */}
-                        <div className="py-2">
-                          {category.children.map((sub) => (
-                            <Link
-                              key={sub.id}
-                              href={`/products/category/${sub.slugPath}`}
-                              className="block px-5 py-2 text-sm text-foreground/80 hover:bg-secondary hover:text-primary transition-colors"
-                            >
-                              {sub.name}
-                            </Link>
-                          ))}
-                        </div>
-
-                        {/* Sale Section */}
-                        <div className="border-t border-border px-5 py-3 bg-primary/5">
+                          {/* Shop All Link */}
                           <Link
-                            href={`/sale?category=${category.slugPath}`}
-                            className="text-sm font-medium text-primary hover:underline"
+                            href={`/products/category/${category.slugPath}`}
+                            className="block px-5 py-3 text-sm font-semibold text-foreground hover:bg-secondary hover:text-primary transition-colors border-b border-border"
                           >
-                            {category.name} on Sale →
+                            Shop All {category.name}
                           </Link>
-                        </div>
-                      </motion.div>
-                    )}
+
+                          {/* Subcategory Header */}
+                          <div className="px-5 py-2 bg-secondary/50">
+                            <span className="text-xs font-semibold tracking-wider text-foreground/60 uppercase">
+                              Shop by Type
+                            </span>
+                          </div>
+
+                          {/* Subcategories */}
+                          <div className="py-2">
+                            {category.children.map((sub) => (
+                              <Link
+                                key={sub.id}
+                                href={`/products/category/${sub.slugPath}`}
+                                className="block px-5 py-2 text-sm text-foreground/80 hover:bg-secondary hover:text-primary transition-colors"
+                              >
+                                {sub.name}
+                              </Link>
+                            ))}
+                          </div>
+
+                          {/* Sale Section */}
+                          <div className="border-t border-border px-5 py-3 bg-primary/5">
+                            <Link
+                              href={`/sale?category=${category.slugPath}`}
+                              className="text-sm font-medium text-primary hover:underline"
+                            >
+                              {category.name} on Sale →
+                            </Link>
+                          </div>
+                        </motion.div>
+                      )}
                   </AnimatePresence>
                 </motion.div>
               ))}
@@ -275,20 +276,6 @@ export default function Header({ categories }: HeaderProps) {
               >
                 Home
               </Link>
-              <Link
-                href="/sale"
-                className="py-3 text-lg font-semibold text-primary hover:text-primary/80 transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Sale
-              </Link>
-              <Link
-                href="/combos"
-                className="py-3 text-lg font-semibold text-primary hover:text-primary/80 transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Combos
-              </Link>
 
               <div className="border-t border-border my-2"></div>
 
@@ -319,40 +306,54 @@ export default function Header({ categories }: HeaderProps) {
                   </button>
 
                   <AnimatePresence>
-                    {expandedMobileCategory === category.id && category.children.length > 0 && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="pl-4 pb-3 space-y-2">
-                          <Link
-                            href={`/products/category/${category.slugPath}`}
-                            className="block py-2 text-sm font-medium text-primary"
-                            onClick={() => setMobileMenuOpen(false)}
-                          >
-                            Shop All {category.name}
-                          </Link>
-                          {category.children.map((sub) => (
+                    {expandedMobileCategory === category.id &&
+                      category.children.length > 0 && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="pl-4 pb-3 space-y-2">
                             <Link
-                              key={sub.id}
-                              href={`/products/category/${sub.slugPath}`}
-                              className="block py-2 text-sm text-foreground/70 hover:text-primary"
+                              href={`/products/category/${category.slugPath}`}
+                              className="block py-2 text-sm font-medium text-primary"
                               onClick={() => setMobileMenuOpen(false)}
                             >
-                              {sub.name}
+                              Shop All {category.name}
                             </Link>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
+                            {category.children.map((sub) => (
+                              <Link
+                                key={sub.id}
+                                href={`/products/category/${sub.slugPath}`}
+                                className="block py-2 text-sm text-foreground/70 hover:text-primary"
+                                onClick={() => setMobileMenuOpen(false)}
+                              >
+                                {sub.name}
+                              </Link>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
                   </AnimatePresence>
                 </div>
               ))}
 
-              <div className="border-t border-border my-2"></div>
+              <Link
+                href="/sale"
+                className="py-3 text-lg font-semibold text-primary hover:text-primary/80 transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Sale
+              </Link>
+              <Link
+                href="/combos"
+                className="py-3 text-lg font-semibold text-primary hover:text-primary/80 transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Combos
+              </Link>
 
               <Link
                 href="/about"

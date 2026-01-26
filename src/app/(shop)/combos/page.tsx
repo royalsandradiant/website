@@ -5,7 +5,7 @@ import type { ProductWithCategory } from '@/app/lib/definitions';
 
 export const metadata = {
   title: 'Combo Deals | Royals and Radiant',
-  description: 'Pick any 3 items from our curated combo collection and save! Exclusive bundle deals on jewelry.',
+  description: 'Pick any 2 or 3 items from our curated combo collection and get an exclusive bundle discount!',
 };
 
 export default async function CombosPage() {
@@ -40,40 +40,29 @@ export default async function CombosPage() {
           <h1 className="font-display text-4xl md:text-5xl lg:text-6xl text-foreground mb-4">
             Combo Deals
           </h1>
-          <p className="text-lg text-foreground/60 max-w-2xl mx-auto mb-6">
-            Choose any <span className="font-semibold text-foreground">3 items</span> from our 
-            curated selection and get them all for just{' '}
-            <span className="font-bold text-primary text-xl">
-              ${settings.comboPrice.toFixed(2)}
-            </span>
-          </p>
-          <div className="flex items-center justify-center gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                1
-              </div>
-              <span className="text-foreground/70">Select 3 items</span>
+          <div className="flex flex-col md:flex-row items-center justify-center gap-6 mb-8">
+            <div className="bg-secondary/50 p-4 rounded-xl border border-border">
+              <p className="text-sm text-foreground/50 uppercase tracking-widest mb-1">Buy 2 Get</p>
+              <p className="text-3xl font-bold text-primary">{settings.comboDiscount2}% OFF</p>
             </div>
-            <div className="w-8 h-px bg-border" />
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                2
-              </div>
-              <span className="text-foreground/70">Add to cart</span>
-            </div>
-            <div className="w-8 h-px bg-border" />
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                3
-              </div>
-              <span className="text-foreground/70">Checkout & Save!</span>
+            <div className="bg-secondary/50 p-4 rounded-xl border border-border">
+              <p className="text-sm text-foreground/50 uppercase tracking-widest mb-1">Buy 3 Get</p>
+              <p className="text-3xl font-bold text-primary">{settings.comboDiscount3}% OFF</p>
             </div>
           </div>
+          <p className="text-lg text-foreground/60 max-w-2xl mx-auto mb-6">
+            Pick any <span className="font-semibold text-foreground">2 or 3 items</span> from our 
+            curated selection and save with our special bundle discounts!
+          </p>
         </div>
 
         {/* Combo Selector */}
         {validProducts.length > 0 ? (
-          <ComboSelector products={validProducts} comboPrice={settings.comboPrice} />
+          <ComboSelector 
+            products={validProducts} 
+            comboDiscount2={settings.comboDiscount2} 
+            comboDiscount3={settings.comboDiscount3} 
+          />
         ) : (
           <div className="text-center py-20 bg-secondary/30 rounded-2xl border border-dashed border-border">
             <h2 className="font-display text-2xl text-foreground mb-2">No Combos Available</h2>

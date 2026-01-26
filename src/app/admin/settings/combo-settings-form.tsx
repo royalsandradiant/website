@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { updateComboSettings } from '@/app/lib/actions';
 
-export default function ComboSettingsForm({ currentPrice }: { currentPrice: number }) {
-  const [price, setPrice] = useState(currentPrice.toString());
+export default function ComboSettingsForm({ currentDiscount2, currentDiscount3 }: { currentDiscount2: number, currentDiscount3: number }) {
+  const [discount2, setDiscount2] = useState(currentDiscount2.toString());
+  const [discount3, setDiscount3] = useState(currentDiscount3.toString());
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -13,17 +14,20 @@ export default function ComboSettingsForm({ currentPrice }: { currentPrice: numb
     setIsLoading(true);
     setMessage(null);
 
-    const numericPrice = parseFloat(price);
-    if (isNaN(numericPrice) || numericPrice <= 0) {
-      setMessage({ type: 'error', text: 'Please enter a valid price greater than 0.' });
+    const numericDiscount2 = parseInt(discount2);
+    const numericDiscount3 = parseInt(discount3);
+
+    if (isNaN(numericDiscount2) || numericDiscount2 < 0 || numericDiscount2 > 100 || 
+        isNaN(numericDiscount3) || numericDiscount3 < 0 || numericDiscount3 > 100) {
+      setMessage({ type: 'error', text: 'Please enter valid percentage discounts (0-100).' });
       setIsLoading(false);
       return;
     }
 
-    const result = await updateComboSettings(numericPrice);
+    const result = await updateComboSettings(numericDiscount2, numericDiscount3);
     
     if (result.success) {
-      setMessage({ type: 'success', text: 'Combo price updated successfully!' });
+      setMessage({ type: 'success', text: 'Combo discounts updated successfully!' });
     } else {
       setMessage({ type: 'error', text: result.error || 'Failed to update settings.' });
     }
@@ -32,27 +36,51 @@ export default function ComboSettingsForm({ currentPrice }: { currentPrice: numb
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label htmlFor="comboPrice" className="block text-sm font-medium text-gray-700 mb-2">
-          Combo Price (for 3 items)
-        </label>
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-          <input
-            id="comboPrice"
-            type="number"
-            step="0.01"
-            min="0.01"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            className="pl-8 block w-full max-w-xs rounded-md border border-gray-300 py-2 px-4 text-sm outline-2 focus:border-purple-500 focus:ring-purple-500"
-            placeholder="100.00"
-          />
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label htmlFor="comboDiscount2" className="block text-sm font-medium text-gray-700 mb-2">
+            2-Item Combo Discount (%)
+          </label>
+          <div className="relative">
+            <input
+              id="comboDiscount2"
+              type="number"
+              min="0"
+              max="100"
+              value={discount2}
+              onChange={(e) => setDiscount2(e.target.value)}
+              className="block w-full rounded-md border border-gray-300 py-2 px-4 text-sm outline-2 focus:border-primary focus:ring-primary"
+              placeholder="10"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            Percentage off when buying any 2 combo-eligible items.
+          </p>
         </div>
-        <p className="mt-1 text-xs text-gray-500">
-          This is the total price customers will pay for any 3 combo-eligible items.
-        </p>
+
+        <div>
+          <label htmlFor="comboDiscount3" className="block text-sm font-medium text-gray-700 mb-2">
+            3-Item Combo Discount (%)
+          </label>
+          <div className="relative">
+            <input
+              id="comboDiscount3"
+              type="number"
+              min="0"
+              max="100"
+              value={discount3}
+              onChange={(e) => setDiscount3(e.target.value)}
+              className="block w-full rounded-md border border-gray-300 py-2 px-4 text-sm outline-2 focus:border-primary focus:ring-primary"
+              placeholder="15"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            Percentage off when buying any 3 combo-eligible items.
+          </p>
+        </div>
       </div>
 
       {message && (
@@ -68,7 +96,7 @@ export default function ComboSettingsForm({ currentPrice }: { currentPrice: numb
       <button
         type="submit"
         disabled={isLoading}
-        className="flex h-10 items-center rounded-lg bg-purple-600 px-4 text-sm font-medium text-white transition-colors hover:bg-purple-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-600 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex h-10 items-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isLoading ? 'Saving...' : 'Save Settings'}
       </button>

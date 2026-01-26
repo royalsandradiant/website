@@ -139,28 +139,48 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
           </div>
           
           {isOnSale && (
-            <div>
-              <label htmlFor="salePrice" className="mb-2 block text-sm font-medium">
-                Sale Price ($)
-              </label>
-              <input
-                id="salePrice"
-                name="salePrice"
-                type="number"
-                step="0.01"
-                defaultValue={product?.salePrice || ''}
-                placeholder="Enter sale price"
-                className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                The sale price will be displayed instead of the regular price
-              </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="salePercentage" className="mb-2 block text-sm font-medium">
+                  Sale Percentage (%)
+                </label>
+                <input
+                  id="salePercentage"
+                  name="salePercentage"
+                  type="number"
+                  min="0"
+                  max="100"
+                  defaultValue={product?.salePercentage || ''}
+                  placeholder="e.g. 20"
+                  className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Enter discount percentage (e.g., 20 for 20% off)
+                </p>
+              </div>
+              <div>
+                <label htmlFor="salePrice" className="mb-2 block text-sm font-medium">
+                  OR Sale Price ($)
+                </label>
+                <input
+                  id="salePrice"
+                  name="salePrice"
+                  type="number"
+                  step="0.01"
+                  defaultValue={product?.salePrice || ''}
+                  placeholder="Enter fixed sale price"
+                  className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Fixed sale price takes precedence if provided
+                </p>
+              </div>
             </div>
           )}
         </div>
 
         {/* Combo Section */}
-        <div className="mb-4 p-4 border border-dashed border-purple-300 rounded-lg bg-white">
+        <div className="mb-4 p-4 border border-dashed border-primary/30 rounded-lg bg-white">
           <div className="flex items-center gap-3">
             <input
               type="checkbox"
@@ -168,14 +188,14 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
               name="isCombo"
               checked={isCombo}
               onChange={(e) => setIsCombo(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
             />
             <label htmlFor="isCombo" className="text-sm font-medium">
               Show on Combo Page
             </label>
           </div>
           <p className="mt-1 text-xs text-gray-500 ml-7">
-            Products marked for combo will appear on the Combos page where customers can select 3 items for a bundle deal
+            Products marked for combo will appear on the Combos page where customers can select 2 or 3 items for a bundle deal
           </p>
         </div>
 

@@ -19,6 +19,7 @@ function transformProduct(product: any | null): Product | null {
     isOnSale: product.isOnSale || false,
     isFeatured: product.isFeatured || false,
     salePrice: product.salePrice ? Number(product.salePrice) : null,
+    salePercentage: product.salePercentage || null,
     isCombo: product.isCombo || false,
     comboPrice: product.comboPrice ? Number(product.comboPrice) : null,
   };
@@ -365,7 +366,7 @@ export async function fetchComboSettings() {
     // Safety check for prisma.settings existence
     if (!prisma.settings) {
       console.warn('prisma.settings is undefined. This may be due to an outdated Prisma client.');
-      return { comboPrice: 100 };
+      return { comboDiscount2: 10, comboDiscount3: 15 };
     }
 
     let settings = await prisma.settings.findUnique({
@@ -377,17 +378,19 @@ export async function fetchComboSettings() {
       settings = await prisma.settings.create({
         data: {
           id: 'global',
-          comboPrice: 100,
+          comboDiscount2: 10,
+          comboDiscount3: 15,
         },
       });
     }
     
     return {
-      comboPrice: Number(settings.comboPrice),
+      comboDiscount2: settings.comboDiscount2,
+      comboDiscount3: settings.comboDiscount3,
     };
   } catch (error) {
     console.error('Database Error:', error);
     // Fallback to default if there's an error
-    return { comboPrice: 100 };
+    return { comboDiscount2: 10, comboDiscount3: 15 };
   }
 }

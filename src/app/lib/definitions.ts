@@ -44,6 +44,7 @@ export type Product = {
   isOnSale: boolean;
   isFeatured: boolean;
   salePrice: number | null;
+  salePercentage: number | null;
   isCombo: boolean;
   comboPrice: number | null;
   createdAt: Date;

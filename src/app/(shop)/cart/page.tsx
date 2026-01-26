@@ -62,19 +62,19 @@ export default function CartPage() {
             return (
               <div
                 key={comboId}
-                className="mb-6 rounded-xl border-2 border-purple-200 bg-purple-50/50 overflow-hidden"
+                className="mb-6 rounded-xl border-2 border-primary/20 bg-primary/5 overflow-hidden"
               >
                 {/* Combo Header */}
-                <div className="flex items-center justify-between px-4 py-3 bg-purple-100/50 border-b border-purple-200">
+                <div className="flex items-center justify-between px-4 py-3 bg-primary/10 border-b border-primary/20">
                   <div className="flex items-center gap-2">
-                    <Package className="h-5 w-5 text-purple-600" />
-                    <span className="font-semibold text-purple-800">Combo Deal</span>
-                    <span className="text-xs text-purple-600 bg-purple-200 px-2 py-0.5 rounded-full">
-                      3 items
+                    <Package className="h-5 w-5 text-primary" />
+                    <span className="font-semibold text-foreground">Combo Deal</span>
+                    <span className="text-xs text-primary bg-primary/20 px-2 py-0.5 rounded-full">
+                      {comboItems.length} items
                     </span>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="font-bold text-purple-700">${comboTotal.toFixed(2)}</span>
+                    <span className="font-bold text-primary">${comboTotal.toFixed(2)}</span>
                     <button
                       type="button"
                       onClick={() => removeCombo(comboId)}
@@ -87,7 +87,7 @@ export default function CartPage() {
                 </div>
                 
                 {/* Combo Items */}
-                <div className="divide-y divide-purple-100">
+                <div className="divide-y divide-primary/10">
                   {comboItems.map((item) => (
                     <div
                       key={item.id}
@@ -106,7 +106,7 @@ export default function CartPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-display text-sm text-foreground truncate">
-                          {item.name.replace(/ \(Combo \d\/3\)$/, '')}
+                          {item.name.replace(/ \(Combo \d\/\d\)$/, '')}
                         </h3>
                         <p className="text-xs text-foreground/50">Part of combo</p>
                       </div>
@@ -177,8 +177,8 @@ export default function CartPage() {
                 const comboTotal = comboItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
                 return (
                   <div key={comboId} className="flex justify-between text-sm mb-2">
-                    <span className="text-foreground/70">Combo Deal (3 items)</span>
-                    <span className="text-purple-600 font-medium">${comboTotal.toFixed(2)}</span>
+                    <span className="text-foreground/70">Combo Deal ({comboItems.length} items)</span>
+                    <span className="text-primary font-medium">${comboTotal.toFixed(2)}</span>
                   </div>
                 );
               })}
