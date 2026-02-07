@@ -837,6 +837,20 @@ export async function submitContactForm(
   _prevState: ContactFormState,
   formData: FormData
 ): Promise<ContactFormState> {
+  // Honeypot check
+  const website = formData.get('b_website');
+  const formTs = formData.get('form_ts');
+  const currentTime = Date.now();
+  
+  // If honeypot is filled OR form was submitted in less than 3 seconds
+  if (website || (formTs && currentTime - Number(formTs) < 3000)) {
+    console.warn('Bot detected: Honeypot or fast submission.');
+    return {
+      success: true,
+      message: 'Thank you! Your message has been sent successfully.',
+    };
+  }
+
   const validatedFields = ContactFormSchema.safeParse({
     name: formData.get('name'),
     email: formData.get('email'),

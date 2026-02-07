@@ -59,6 +59,22 @@ export default function ContactPage() {
             ) : (
               <form action={formAction} className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-6">
+                  {/* Honeypot field - hidden from users but detectable by bots */}
+                  <div className="opacity-0 absolute -z-10 select-none pointer-events-none" aria-hidden="true">
+                    <label htmlFor="b_website">Website</label>
+                    <input
+                      type="text"
+                      id="b_website"
+                      name="b_website"
+                      tabIndex={-1}
+                      autoComplete="off"
+                    />
+                    <input
+                      type="hidden"
+                      name="form_ts"
+                      value={Date.now()}
+                    />
+                  </div>
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium text-foreground/70 mb-2">
                       Your Name
