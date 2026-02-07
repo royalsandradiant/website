@@ -103,6 +103,7 @@ model Product {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   OrderItems  OrderItem[]
+  variants    ProductVariant[]
 }
 
 model Order {
@@ -130,12 +131,47 @@ model OrderItem {
   quantity  Int
   price     Decimal // Snapshot of price at purchase
   comboId   String? // Track if this item was part of a combo purchase
+  color     String? // Selected color variant
 }
 
 model Settings {
-  id             String   @id @default("global")
-  comboDiscount2 Int      @default(10)
-  comboDiscount3 Int      @default(15)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                   String   @id @default("global")
+  comboDiscount2       Int      @default(10)
+  comboDiscount3       Int      @default(15)
+  estimatedDeliveryMin Int      @default(2)
+  estimatedDeliveryMax Int      @default(4)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model HeroImage {
+  id        String   @id @default(cuid())
+  imageUrl  String
+  altText   String?
+  sortOrder Int      @default(0)
+  isVisible Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProductVariant {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  colorName String
+  hexCode   String?
+  imageUrl  String?
+  price     Decimal? // Override price if needed
+  stock     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ShippingRule {
+  id        String   @id @default(cuid())
+  minAmount Decimal
+  maxAmount Decimal? // null means "and above"
+  price     Decimal
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

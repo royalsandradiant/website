@@ -1,19 +1,20 @@
-import { fetchFeaturedProducts, fetchCategoryTree } from '@/app/lib/data';
+import { fetchFeaturedProducts, fetchCategoryTree, fetchHeroImages } from '@/app/lib/data';
 import type { ProductWithCategory } from '@/app/lib/definitions';
 import { Hero } from '@/app/ui/hero';
 import { ProductGrid } from '@/app/ui/product-grid';
 import Link from 'next/link';
 
 export default async function HomePage() {
-  const [products, categoryTree] = await Promise.all([
+  const [products, categoryTree, heroImages] = await Promise.all([
     fetchFeaturedProducts(),
     fetchCategoryTree(),
+    fetchHeroImages(),
   ]);
   const validProducts = products.filter((p): p is ProductWithCategory => p !== null);
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <Hero />
+      <Hero images={heroImages} />
       
       {/* Curator's Note / Divider */}
       <section className="container mx-auto px-8 py-24 text-center">

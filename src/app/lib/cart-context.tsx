@@ -10,6 +10,7 @@ export type CartItem = {
   imagePath: string;
   comboId?: string;
   originalProductId?: string;
+  color?: string;
 };
 
 type CartContextType = {

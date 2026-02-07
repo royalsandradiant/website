@@ -1,0 +1,139 @@
+$ prisma generate && bun --bun next build
+Loaded Prisma config from prisma.config.ts.
+
+Prisma schema loaded from prisma/schema.prisma.
+
+✔ Generated Prisma Client (v7.3.0) to ./node_modules/@prisma/client in 123ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+
+▲ Next.js 16.1.4 (Turbopack)
+- Environments: .env
+- Experiments (use with caution):
+  · serverActions
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 23.3s
+  Running TypeScript ...
+  Collecting page data using 1 worker ...
+  Generating static pages using 1 worker (0/22) ...
+Database Error: Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.category.findMany()` invocation:
+
+
+getaddrinfo ESERVFAIL
+    at processTicksAndRejections (null) {
+  code: 'ESERVFAIL',
+  meta: [Object],
+  clientVersion: '7.3.0'
+}
+Database Error: Error: Failed to fetch visible categories.
+    at l (.next/server/chunks/ssr/[root-of-the-server]__ffedf4fc._.js:2:1294)
+    at processTicksAndRejections (null)
+Database Error: Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.category.findMany()` invocation:
+
+
+getaddrinfo ESERVFAIL
+    at processTicksAndRejections (null) {
+  code: 'ESERVFAIL',
+  meta: [Object],
+  clientVersion: '7.3.0'
+}
+Database Error: Error: Failed to fetch visible categories.
+    at l (.next/server/chunks/ssr/[root-of-the-server]__ffedf4fc._.js:2:1294)
+    at processTicksAndRejections (null)
+Database Error: Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.category.findMany()` invocation:
+
+
+getaddrinfo ESERVFAIL
+    at processTicksAndRejections (null) {
+  code: 'ESERVFAIL',
+  meta: [Object],
+  clientVersion: '7.3.0'
+}
+Database Error: Error: Failed to fetch visible categories.
+    at l (.next/server/chunks/ssr/[root-of-the-server]__ffedf4fc._.js:2:1294)
+    at processTicksAndRejections (null)
+Database Error: Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.shippingRule.findMany()` invocation:
+
+
+getaddrinfo ESERVFAIL
+    at processTicksAndRejections (null) {
+  code: 'ESERVFAIL',
+  meta: [Object],
+  clientVersion: '7.3.0'
+}
+Database Error: Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.category.findMany()` invocation:
+
+
+getaddrinfo ESERVFAIL
+    at processTicksAndRejections (null) {
+  code: 'ESERVFAIL',
+  meta: [Object],
+  clientVersion: '7.3.0'
+}
+Database Error: Error: Failed to fetch visible categories.
+    at l (.next/server/chunks/ssr/[root-of-the-server]__ffedf4fc._.js:2:1294)
+    at processTicksAndRejections (null)
+Database Error: Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.category.findMany()` invocation:
+
+
+getaddrinfo ESERVFAIL
+    at processTicksAndRejections (null) {
+  code: 'ESERVFAIL',
+  meta: [Object],
+  clientVersion: '7.3.0'
+}
+Database Error: Error: Failed to fetch visible categories.
+    at l (.next/server/chunks/ssr/[root-of-the-server]__ffedf4fc._.js:2:1294)
+    at processTicksAndRejections (null)
+Database Error: Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.product.findMany()` invocation:
+
+
+getaddrinfo ESERVFAIL
+    at processTicksAndRejections (null) {
+  code: 'ESERVFAIL',
+  meta: [Object],
+  clientVersion: '7.3.0'
+}
+Database Error: Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.settings.findUnique()` invocation:
+
+
+getaddrinfo ESERVFAIL
+    at processTicksAndRejections (null) {
+  code: 'ESERVFAIL',
+  meta: [Object],
+  clientVersion: '7.3.0'
+}
+Database Error: Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.category.findMany()` invocation:
+
+
+getaddrinfo ESERVFAIL
+    at processTicksAndRejections (null) {
+  code: 'ESERVFAIL',
+  meta: [Object],
+  clientVersion: '7.3.0'
+}
+Database Error: Error: Failed to fetch visible categories.
+    at l (.next/server/chunks/ssr/[root-of-the-server]__ffedf4fc._.js:2:1294)
+    at processTicksAndRejections (null)
+Error occurred prerendering page "/about". Read more: https://nextjs.org/docs/messages/prerender-error
+Error: Failed to fetch category tree.
+    at m (.next/server/chunks/ssr/[root-of-the-server]__ffedf4fc._.js:2:1462)
+    at processTicksAndRejections (unknown:7:39) {
+  digest: '1617075001'
+}
+Export encountered an error on /(shop)/about/page: /about, exiting the build.
+⨯ Next.js build worker exited with code: 1 and signal: null
+error: "next" exited with code 1
+error: script "build" exited with code 1

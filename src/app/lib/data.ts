@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from './prisma';
-import type { Product, Category, ProductWithCategory, LeafCategory } from './definitions';
+import { Product, Category, ProductWithCategory, LeafCategory, ShippingRule } from './definitions';
 import { buildCategoryTree, flattenCategoryTree, getLeafCategories } from './category';
 
 function transformProduct(product: any | null): Product | null {
@@ -22,6 +22,10 @@ function transformProduct(product: any | null): Product | null {
     salePercentage: product.salePercentage || null,
     isCombo: product.isCombo || false,
     comboPrice: product.comboPrice ? Number(product.comboPrice) : null,
+    variants: product.variants ? product.variants.map((v: any) => ({
+      ...v,
+      price: v.price ? Number(v.price) : null
+    })) : []
   };
 }
 
@@ -213,7 +217,12 @@ export async function fetchProductById(id: string) {
   try {
     const product = await prisma.product.findUnique({
       where: { id },
-      include: { categoryRef: true },
+      include: { 
+        categoryRef: true,
+        variants: {
+          orderBy: { colorName: 'asc' }
+        }
+      },
     });
     return transformProductWithCategory(product);
   } catch (error) {
@@ -366,7 +375,7 @@ export async function fetchComboSettings() {
     // Safety check for prisma.settings existence
     if (!prisma.settings) {
       console.warn('prisma.settings is undefined. This may be due to an outdated Prisma client.');
-      return { comboDiscount2: 10, comboDiscount3: 15 };
+      return { comboDiscount2: 10, comboDiscount3: 15, estimatedDeliveryMin: 2, estimatedDeliveryMax: 4 };
     }
 
     let settings = await prisma.settings.findUnique({
@@ -380,6 +389,8 @@ export async function fetchComboSettings() {
           id: 'global',
           comboDiscount2: 10,
           comboDiscount3: 15,
+          estimatedDeliveryMin: 2,
+          estimatedDeliveryMax: 4,
         },
       });
     }
@@ -387,10 +398,52 @@ export async function fetchComboSettings() {
     return {
       comboDiscount2: settings.comboDiscount2,
       comboDiscount3: settings.comboDiscount3,
+      estimatedDeliveryMin: settings.estimatedDeliveryMin,
+      estimatedDeliveryMax: settings.estimatedDeliveryMax,
     };
   } catch (error) {
     console.error('Database Error:', error);
     // Fallback to default if there's an error
-    return { comboDiscount2: 10, comboDiscount3: 15 };
+    return { comboDiscount2: 10, comboDiscount3: 15, estimatedDeliveryMin: 2, estimatedDeliveryMax: 4 };
+  }
+}
+
+export async function fetchHeroImages() {
+  try {
+    return await prisma.heroImage.findMany({
+      where: { isVisible: true },
+      orderBy: { sortOrder: 'asc' },
+    });
+  } catch (error) {
+    console.error('Database Error:', error);
+    return [];
+  }
+}
+
+export async function fetchAllHeroImages() {
+  try {
+    return await prisma.heroImage.findMany({
+      orderBy: { sortOrder: 'asc' },
+    });
+  } catch (error) {
+    console.error('Database Error:', error);
+    return [];
+  }
+}
+
+export async function fetchShippingRules() {
+  try {
+    const rules = await prisma.shippingRule.findMany({
+      orderBy: { minAmount: 'asc' },
+    });
+    return rules.map(r => ({
+      ...r,
+      minAmount: Number(r.minAmount),
+      maxAmount: r.maxAmount ? Number(r.maxAmount) : null,
+      price: Number(r.price),
+    })) as ShippingRule[];
+  } catch (error) {
+    console.error('Database Error:', error);
+    return [];
   }
 }

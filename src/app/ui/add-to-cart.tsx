@@ -9,29 +9,78 @@ export default function AddToCart({ product }: { product: Product }) {
   const { addItem } = useCart();
   const [isAdded, setIsAdded] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [selectedVariant, setSelectedVariant] = useState<any>(null);
 
   // Use sale price if product is on sale
-  const effectivePrice =
+  const basePrice =
     product.isOnSale && product.salePrice
       ? Number(product.salePrice)
       : Number(product.price);
 
+  const effectivePrice = selectedVariant?.price ? Number(selectedVariant.price) : basePrice;
+
   const handleAddToCart = () => {
     addItem({
       id: product.id,
-      name: product.name,
+      name: selectedVariant ? `${product.name} - ${selectedVariant.colorName}` : product.name,
       price: effectivePrice,
       quantity: quantity,
-      imagePath: product.images && product.images.length > 0 ? product.images[0] : '',
+      imagePath: selectedVariant?.imageUrl || (product.images && product.images.length > 0 ? product.images[0] : ''),
+      color: selectedVariant?.colorName,
     });
     setIsAdded(true);
     setTimeout(() => setIsAdded(false), 2000);
   };
 
-  const isOutOfStock = product.stock <= 0;
+  const isOutOfStock = product.stock <= 0 && (!selectedVariant || selectedVariant.stock <= 0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Variant Selector (Feature 3) */}
+      {product.variants && product.variants.length > 0 && (
+        <div className="space-y-3">
+          <span className="text-sm font-bold uppercase tracking-widest text-foreground/60">
+            Available Colors:
+          </span>
+          <div className="flex flex-wrap gap-3">
+            {product.variants.map((variant) => (
+              <button
+                key={variant.id}
+                type="button"
+                onClick={() => setSelectedVariant(variant)}
+                className={`group relative flex flex-col items-center gap-2 p-2 rounded-lg border-2 transition-all ${
+                  selectedVariant?.id === variant.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/30'
+                }`}
+              >
+                {variant.imageUrl ? (
+                  <div className="h-12 w-12 rounded-full overflow-hidden border border-border">
+                    <img src={variant.imageUrl} alt={variant.colorName} className="h-full w-full object-cover" />
+                  </div>
+                ) : (
+                  <div 
+                    className="h-12 w-12 rounded-full border border-border" 
+                    style={{ backgroundColor: variant.hexCode || '#ccc' }}
+                  />
+                )}
+                <span className="text-[10px] font-bold uppercase">{variant.colorName}</span>
+                {variant.price && (
+                  <span className="text-[10px] text-primary font-bold">${Number(variant.price).toFixed(2)}</span>
+                )}
+              </button>
+            ))}
+          </div>
+          {selectedVariant && (
+            <button 
+              type="button" 
+              onClick={() => setSelectedVariant(null)}
+              className="text-xs text-foreground/40 hover:text-foreground underline"
+            >
+              Clear selection
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Quantity Selector */}
       <div className="flex items-center gap-4">
         <span className="text-sm font-medium text-foreground/70">

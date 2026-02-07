@@ -430,7 +430,7 @@ export async function createProduct(_prevState: State, formData: FormData) {
   }
 
   try {
-    await prisma.product.create({
+    const product = await prisma.product.create({
       data: {
         name,
         description,
@@ -443,6 +443,15 @@ export async function createProduct(_prevState: State, formData: FormData) {
         salePercentage: salePercentage || null,
         isCombo,
         images,
+        variants: {
+          create: JSON.parse(formData.get('variantsJson') as string || '[]').map((v: any) => ({
+            colorName: v.colorName,
+            hexCode: v.hexCode,
+            price: v.price ? parseFloat(v.price) : null,
+            stock: parseInt(v.stock || '0'),
+            imageUrl: v.imageUrl || null,
+          })),
+        },
       },
     });
   } catch (error) {
@@ -535,22 +544,38 @@ export async function updateProduct(id: string, _prevState: State, formData: For
   }
 
   try {
-    await prisma.product.update({
-      where: { id },
-      data: {
-        name,
-        description,
-        price,
-        categoryId,
-        stock,
-        isOnSale,
-        isFeatured,
-        salePrice: finalSalePrice || null,
-        salePercentage: salePercentage || null,
-        isCombo,
-        images,
-      },
-    });
+    const variants = JSON.parse(formData.get('variantsJson') as string || '[]');
+
+    await prisma.$transaction([
+      // Delete old variants
+      prisma.productVariant.deleteMany({ where: { productId: id } }),
+      // Update product and create new variants
+      prisma.product.update({
+        where: { id },
+        data: {
+          name,
+          description,
+          price,
+          categoryId,
+          stock,
+          isOnSale,
+          isFeatured,
+          salePrice: finalSalePrice || null,
+          salePercentage: salePercentage || null,
+          isCombo,
+          images,
+          variants: {
+            create: variants.map((v: any) => ({
+              colorName: v.colorName,
+              hexCode: v.hexCode,
+              price: v.price ? parseFloat(v.price) : null,
+              stock: parseInt(v.stock || '0'),
+              imageUrl: v.imageUrl || null,
+            })),
+          },
+        },
+      }),
+    ]);
   } catch (error) {
     console.error('Database Error:', error);
     return { message: 'Database Error: Failed to Update Product.' };
@@ -1019,6 +1044,7 @@ export type CheckoutItem = {
   images?: string[];
   comboId?: string;
   originalProductId?: string;
+  color?: string;
 };
 
 export type ShippingInfo = {
@@ -1033,7 +1059,8 @@ export type ShippingInfo = {
 
 export async function createStripeCheckoutSession(
   items: CheckoutItem[],
-  shippingInfo: ShippingInfo
+  shippingInfo: ShippingInfo,
+  shippingCost: number = 0
 ): Promise<{ url: string | null; error?: string }> {
   try {
     // Get base URL with fallback for local development
@@ -1084,7 +1111,7 @@ export async function createStripeCheckoutSession(
       customerId = customer.id;
     }
 
-    const lineItems = items.map((item) => ({
+    const lineItems: any[] = items.map((item) => ({
       price_data: {
         currency: 'usd',
         product_data: {
@@ -1096,6 +1123,20 @@ export async function createStripeCheckoutSession(
       quantity: item.quantity,
     }));
 
+    // Add Shipping Line Item (Feature 5)
+    if (shippingCost > 0) {
+      lineItems.push({
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'Shipping & Handling',
+          },
+          unit_amount: Math.round(shippingCost * 100),
+        },
+        quantity: 1,
+      });
+    }
+
     const orderId = `ORD-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
 
     // Include combo information in metadata
@@ -1106,6 +1147,7 @@ export async function createStripeCheckoutSession(
       name: i.name,
       comboId: i.comboId || null,
       originalProductId: i.originalProductId || null,
+      color: i.color || null,
     }));
 
     const session = await stripe.checkout.sessions.create({
@@ -1322,7 +1364,7 @@ export async function handleStripeWebhook(payload: string, signature: string) {
         throw new Error('Missing metadata in session');
       }
       
-      const items: { id: string; quantity: number; price: number; name?: string; comboId?: string | null; originalProductId?: string | null }[] = JSON.parse(metadata.items);
+      const items: { id: string; quantity: number; price: number; name?: string; comboId?: string | null; originalProductId?: string | null; color?: string | null }[] = JSON.parse(metadata.items);
       const totalAmount = (session.amount_total || 0) / 100;
       const customerEmail = session.customer_details?.email || session.customer_email || '';
       const customerName = metadata.customerName || session.customer_details?.name || '';
@@ -1348,6 +1390,7 @@ export async function handleStripeWebhook(payload: string, signature: string) {
               quantity: item.quantity,
               price: item.price,
               comboId: item.comboId || null,
+              color: item.color || null,
             })),
           },
         },
@@ -1446,5 +1489,130 @@ export async function updateComboSettings(comboDiscount2: number, comboDiscount3
   } catch (error) {
     console.error('Database Error:', error);
     return { success: false, error: 'Failed to update combo settings.' };
+  }
+}
+
+export async function updateStoreSettings(data: {
+  comboDiscount2?: number;
+  comboDiscount3?: number;
+  estimatedDeliveryMin?: number;
+  estimatedDeliveryMax?: number;
+}) {
+  try {
+    await prisma.settings.upsert({
+      where: { id: 'global' },
+      update: data,
+      create: { 
+        id: 'global', 
+        comboDiscount2: data.comboDiscount2 ?? 10,
+        comboDiscount3: data.comboDiscount3 ?? 15,
+        estimatedDeliveryMin: data.estimatedDeliveryMin ?? 2,
+        estimatedDeliveryMax: data.estimatedDeliveryMax ?? 4,
+      },
+    });
+    revalidatePath('/admin/settings');
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    console.error('Database Error:', error);
+    return { success: false, error: 'Failed to update store settings.' };
+  }
+}
+
+export async function createShippingRule(minAmount: number, price: number, maxAmount?: number | null) {
+  try {
+    await prisma.shippingRule.create({
+      data: { minAmount, price, maxAmount: maxAmount ?? null },
+    });
+    revalidatePath('/admin/settings');
+    return { success: true };
+  } catch (error) {
+    console.error('Database Error:', error);
+    return { success: false, error: 'Failed to create shipping rule.' };
+  }
+}
+
+export async function deleteShippingRule(id: string) {
+  try {
+    await prisma.shippingRule.delete({ where: { id } });
+    revalidatePath('/admin/settings');
+    return { success: true };
+  } catch (error) {
+    console.error('Database Error:', error);
+    return { success: false, error: 'Failed to delete shipping rule.' };
+  }
+}
+
+export async function createHeroImage(formData: FormData) {
+  const imageFile = formData.get('image') as File;
+  const altText = formData.get('altText') as string;
+  const sortOrder = parseInt(formData.get('sortOrder') as string || '0');
+
+  if (!imageFile || imageFile.size === 0) {
+    return { success: false, error: 'Image is required' };
+  }
+
+  try {
+    const fileName = `hero/${randomUUID()}-${imageFile.name}`;
+    const blob = await put(fileName, imageFile, { access: 'public' });
+    
+    await prisma.heroImage.create({
+      data: {
+        imageUrl: blob.url,
+        altText,
+        sortOrder,
+      },
+    });
+    
+    revalidatePath('/admin/settings');
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    console.error('Error creating hero image:', error);
+    return { success: false, error: 'Failed to upload hero image.' };
+  }
+}
+
+export async function deleteHeroImage(id: string) {
+  try {
+    await prisma.heroImage.delete({ where: { id } });
+    revalidatePath('/admin/settings');
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    console.error('Database Error:', error);
+    return { success: false, error: 'Failed to delete hero image.' };
+  }
+}
+
+export async function reorderHeroImages(orderedIds: { id: string; sortOrder: number }[]) {
+  try {
+    await prisma.$transaction(
+      orderedIds.map(({ id, sortOrder }) =>
+        prisma.heroImage.update({
+          where: { id },
+          data: { sortOrder },
+        })
+      )
+    );
+    revalidatePath('/admin/settings');
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    console.error('Database Error:', error);
+    return { success: false, error: 'Failed to reorder hero images.' };
+  }
+}
+
+export async function uploadVariantImage(formData: FormData) {
+  const file = formData.get('image') as File;
+  if (!file || file.size === 0) return { success: false, error: 'No file' };
+  
+  try {
+    const fileName = `variants/${randomUUID()}-${file.name}`;
+    const blob = await put(fileName, file, { access: 'public' });
+    return { success: true, url: blob.url };
+  } catch (e) {
+    return { success: false, error: 'Upload failed' };
   }
 }

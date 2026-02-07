@@ -49,6 +49,17 @@ export type Product = {
   comboPrice: number | null;
   createdAt: Date;
   updatedAt: Date;
+  variants?: ProductVariant[];
+};
+
+export type ProductVariant = {
+  id: string;
+  productId: string;
+  colorName: string;
+  hexCode: string | null;
+  imageUrl: string | null;
+  price: number | null;
+  stock: number;
 };
 
 export type ProductWithCategory = Product & {
@@ -66,6 +77,32 @@ export type State = {
     stock?: string[];
   };
   message?: string | null;
+};
+
+export type HeroImage = {
+  id: string;
+  imageUrl: string;
+  altText: string | null;
+  sortOrder: number;
+  isVisible: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type ShippingRule = {
+  id: string;
+  minAmount: number;
+  maxAmount: number | null;
+  price: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type StoreSettings = {
+  comboDiscount2: number;
+  comboDiscount3: number;
+  estimatedDeliveryMin: number;
+  estimatedDeliveryMax: number;
 };
 
 export type CategoryState = {

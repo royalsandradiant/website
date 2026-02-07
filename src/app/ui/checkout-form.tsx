@@ -2,13 +2,26 @@
 
 import { useCart } from '@/app/lib/cart-context';
 import { createStripeCheckoutSession } from '@/app/lib/actions';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Loader2, CreditCard, ShieldCheck } from 'lucide-react';
+import type { ShippingRule } from '@/app/lib/definitions';
 
-export default function CheckoutForm() {
+export default function CheckoutForm({ shippingRules }: { shippingRules: ShippingRule[] }) {
   const { items, total } = useCart();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Calculate Shipping (Feature 4 & 5)
+  const shippingCost = useMemo(() => {
+    if (shippingRules.length === 0) return 0;
+    const rule = shippingRules.find(r => 
+      total >= Number(r.minAmount) && 
+      (r.maxAmount === null || total <= Number(r.maxAmount))
+    );
+    return rule ? Number(rule.price) : 0;
+  }, [total, shippingRules]);
+
+  const finalTotal = total + shippingCost;
   const [formData, setFormData] = useState({
     customerName: '',
     customerEmail: '',
@@ -67,7 +80,8 @@ export default function CheckoutForm() {
           comboId: item.comboId,
           originalProductId: item.originalProductId,
         })),
-        formData
+        formData,
+        shippingCost
       );
 
       if (result.url) {
@@ -243,15 +257,17 @@ export default function CheckoutForm() {
             <span className="text-foreground/70">Subtotal</span>
             <span className="text-foreground">${total.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-sm mb-4">
+          <div className="flex justify-between text-sm mb-4 tabular-nums">
             <span className="text-foreground/70">Shipping</span>
-            <span className="text-foreground">Calculated at checkout</span>
+            <span className={shippingCost === 0 ? "text-green-600 font-bold" : "text-foreground"}>
+              {shippingCost === 0 ? "FREE" : `$${shippingCost.toFixed(2)}`}
+            </span>
           </div>
 
           {/* Total */}
           <div className="flex justify-between text-lg font-semibold mb-6 tabular-nums">
             <span className="text-foreground">Total</span>
-            <span className="text-primary">${total.toFixed(2)}</span>
+            <span className="text-primary">${finalTotal.toFixed(2)}</span>
           </div>
 
           {/* Checkout Button */}

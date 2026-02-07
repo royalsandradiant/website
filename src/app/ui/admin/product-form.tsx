@@ -2,11 +2,19 @@
 
 import { useActionState, useState } from 'react';
 import Link from 'next/link';
-import { createProduct, updateProduct } from '@/app/lib/actions';
+import { createProduct, updateProduct, uploadVariantImage } from '@/app/lib/actions';
 import type { Product, ProductWithCategory, LeafCategory } from '@/app/lib/definitions';
 
+interface ProductVariantState {
+  colorName: string;
+  hexCode: string;
+  price: string;
+  stock: string;
+  imageUrl: string;
+}
+
 interface ProductFormProps {
-  product?: ProductWithCategory | null;
+  product?: ProductWithCategory | any;
   categories: LeafCategory[];
 }
 
@@ -20,6 +28,36 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
   const [isFeatured, setIsFeatured] = useState(product?.isFeatured || false);
   const [isCombo, setIsCombo] = useState(product?.isCombo || false);
   const [currentImages, setCurrentImages] = useState<string[]>(product?.images || []);
+  const [variants, setVariants] = useState<ProductVariantState[]>(product?.variants?.map((v: any) => ({
+    colorName: v.colorName,
+    hexCode: v.hexCode || '',
+    price: v.price?.toString() || '',
+    stock: v.stock?.toString() || '',
+    imageUrl: v.imageUrl || '',
+  })) || []);
+
+  const addVariant = () => {
+    setVariants([...variants, { colorName: '', hexCode: '', price: '', stock: '', imageUrl: '' }]);
+  };
+
+  const updateVariant = (index: number, field: keyof ProductVariantState, value: string) => {
+    const newVariants = [...variants];
+    newVariants[index] = { ...newVariants[index], [field]: value };
+    setVariants(newVariants);
+  };
+
+  const removeVariant = (index: number) => {
+    setVariants(variants.filter((_, i) => i !== index));
+  };
+
+  const handleVariantImage = async (index: number, file: File) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    const result = await uploadVariantImage(formData);
+    if (result.success && result.url) {
+      updateVariant(index, 'imageUrl', result.url);
+    }
+  };
 
   const removeCurrentImage = (url: string) => {
     setCurrentImages(currentImages.filter(img => img !== url));
@@ -27,6 +65,7 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
 
   return (
     <form action={dispatch} className="space-y-6">
+      <input type="hidden" name="variantsJson" value={JSON.stringify(variants)} />
       <div className="rounded-md bg-gray-50 p-4 md:p-6">
         {/* Product Name */}
         <div className="mb-4">
@@ -218,6 +257,55 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
                   {error}
                 </p>
               ))}
+          </div>
+        </div>
+
+        {/* Color Variants Section */}
+        <div className="mb-4 p-4 border border-dashed border-gray-300 rounded-lg bg-white">
+          <h3 className="text-sm font-bold mb-4 uppercase tracking-wider text-gray-500">Color Variants</h3>
+          <div className="space-y-4">
+            {variants.map((v, idx) => (
+              <div key={idx} className="p-3 border border-gray-100 rounded bg-gray-50 relative">
+                <button type="button" onClick={() => removeVariant(idx)} className="absolute top-2 right-2 text-red-400 hover:text-red-600">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Color Name</label>
+                    <input type="text" value={v.colorName} onChange={(e) => updateVariant(idx, 'colorName', e.target.value)} className="w-full text-xs p-2 border rounded" placeholder="e.g. Ruby Red" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Hex Code (Optional)</label>
+                    <div className="flex gap-2 items-center">
+                      <input type="color" value={v.hexCode || '#000000'} onChange={(e) => updateVariant(idx, 'hexCode', e.target.value)} className="w-8 h-8 rounded border-0 p-0 overflow-hidden" />
+                      <input type="text" value={v.hexCode} onChange={(e) => updateVariant(idx, 'hexCode', e.target.value)} className="flex-1 text-xs p-2 border rounded" placeholder="#FF0000" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Price (Optional)</label>
+                    <input type="number" step="0.01" value={v.price} onChange={(e) => updateVariant(idx, 'price', e.target.value)} className="w-full text-xs p-2 border rounded" placeholder="Leave empty for base price" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Stock</label>
+                    <input type="number" value={v.stock} onChange={(e) => updateVariant(idx, 'stock', e.target.value)} className="w-full text-xs p-2 border rounded" placeholder="0" />
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center gap-4">
+                  <div className="flex-1">
+                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Variant Image</label>
+                    <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && handleVariantImage(idx, e.target.files[0])} className="text-[10px]" />
+                  </div>
+                  {v.imageUrl && (
+                    <div className="h-10 w-10 rounded border overflow-hidden bg-white">
+                      <img src={v.imageUrl} alt="Variant" className="h-full w-full object-cover" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            <button type="button" onClick={addVariant} className="w-full py-2 border-2 border-dashed border-gray-200 rounded text-xs font-bold text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors">
+              + ADD COLOR VARIANT
+            </button>
           </div>
         </div>
 
