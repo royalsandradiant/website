@@ -5,11 +5,25 @@ import { useState } from "react";
 import { ShoppingBag, Check } from "lucide-react";
 import { Product } from "@/app/lib/definitions";
 
-export default function AddToCart({ product }: { product: Product }) {
+export default function AddToCart({ product, onVariantChange }: { product: Product, onVariantChange?: (variant: any) => void }) {
   const { addItem } = useCart();
   const [isAdded, setIsAdded] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
+
+  const handleVariantSelect = (variant: any) => {
+    setSelectedVariant(variant);
+    if (onVariantChange) {
+      onVariantChange(variant);
+    }
+  };
+
+  const handleClearVariant = () => {
+    setSelectedVariant(null);
+    if (onVariantChange) {
+      onVariantChange(null);
+    }
+  };
 
   // Use sale price if product is on sale
   const basePrice =
@@ -47,7 +61,7 @@ export default function AddToCart({ product }: { product: Product }) {
               <button
                 key={variant.id}
                 type="button"
-                onClick={() => setSelectedVariant(variant)}
+                onClick={() => handleVariantSelect(variant)}
                 className={`group relative flex flex-col items-center gap-2 p-2 rounded-lg border-2 transition-all ${
                   selectedVariant?.id === variant.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/30'
                 }`}
@@ -72,7 +86,7 @@ export default function AddToCart({ product }: { product: Product }) {
           {selectedVariant && (
             <button 
               type="button" 
-              onClick={() => setSelectedVariant(null)}
+              onClick={handleClearVariant}
               className="text-xs text-foreground/40 hover:text-foreground underline"
             >
               Clear selection

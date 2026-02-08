@@ -450,6 +450,7 @@ export async function createProduct(_prevState: State, formData: FormData) {
             price: v.price ? parseFloat(v.price) : null,
             stock: parseInt(v.stock || '0'),
             imageUrl: v.imageUrl || null,
+            images: v.images || [],
           })),
         },
       },
@@ -571,6 +572,7 @@ export async function updateProduct(id: string, _prevState: State, formData: For
               price: v.price ? parseFloat(v.price) : null,
               stock: parseInt(v.stock || '0'),
               imageUrl: v.imageUrl || null,
+              images: v.images || [],
             })),
           },
         },
@@ -1558,32 +1560,40 @@ export async function deleteShippingRule(id: string) {
 }
 
 export async function createHeroImage(formData: FormData) {
-  const imageFile = formData.get('image') as File;
+  const imageFiles = formData.getAll('image') as File[];
   const altText = formData.get('altText') as string;
-  const sortOrder = parseInt(formData.get('sortOrder') as string || '0');
+  const sortOrderBase = parseInt(formData.get('sortOrder') as string || '0');
 
-  if (!imageFile || imageFile.size === 0) {
-    return { success: false, error: 'Image is required' };
+  if (imageFiles.length === 0 || (imageFiles.length === 1 && imageFiles[0].size === 0)) {
+    return { success: false, error: 'At least one image is required' };
   }
 
   try {
-    const fileName = `hero/${randomUUID()}-${imageFile.name}`;
-    const blob = await put(fileName, imageFile, { access: 'public' });
+    const createdImages = [];
     
-    const image = await prisma.heroImage.create({
-      data: {
-        imageUrl: blob.url,
-        altText,
-        sortOrder,
-      },
-    });
+    for (let i = 0; i < imageFiles.length; i++) {
+      const imageFile = imageFiles[i];
+      if (imageFile.size === 0) continue;
+
+      const fileName = `hero/${randomUUID()}-${imageFile.name}`;
+      const blob = await put(fileName, imageFile, { access: 'public' });
+      
+      const image = await prisma.heroImage.create({
+        data: {
+          imageUrl: blob.url,
+          altText,
+          sortOrder: sortOrderBase + i,
+        },
+      });
+      createdImages.push(image);
+    }
     
     revalidatePath('/admin/settings');
     revalidatePath('/');
-    return { success: true, image };
+    return { success: true, images: createdImages };
   } catch (error) {
     console.error('Error creating hero image:', error);
-    return { success: false, error: 'Failed to upload hero image.' };
+    return { success: false, error: 'Failed to upload hero images.' };
   }
 }
 

@@ -58,6 +58,7 @@ export type ProductVariant = {
   colorName: string;
   hexCode: string | null;
   imageUrl: string | null;
+  images: string[];
   price: number | null;
   stock: number;
 };

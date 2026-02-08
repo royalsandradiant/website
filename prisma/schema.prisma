@@ -161,6 +161,7 @@ model ProductVariant {
   colorName String
   hexCode   String?
   imageUrl  String?
+  images    String[] @default([])
   price     Decimal? // Override price if needed
   stock     Int      @default(0)
   createdAt DateTime @default(now())

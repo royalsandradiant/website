@@ -13,14 +13,16 @@ export default function HeroImagesForm({ initialImages }: { initialImages: HeroI
     e.preventDefault();
     const form = e.currentTarget;
     const formData = new FormData(form);
-    const file = formData.get('image') as File;
+    const files = formData.getAll('image') as File[];
     
-    if (!file || file.size === 0) return;
+    if (files.length === 0 || (files.length === 1 && files[0].size === 0)) return;
 
-    // Client-side size check (e.g., 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert('File is too large. Please upload an image smaller than 10MB.');
-      return;
+    // Client-side size check (e.g., 10MB per file)
+    for (const file of files) {
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`File "${file.name}" is too large. Please upload images smaller than 10MB.`);
+        return;
+      }
     }
 
     setIsUploading(true);
@@ -28,16 +30,16 @@ export default function HeroImagesForm({ initialImages }: { initialImages: HeroI
       const result = await createHeroImage(formData);
       if (result.success) {
         form.reset();
-        // Update local state to show the new image immediately
-        if (result.image) {
-          setImages(prev => [...prev, result.image!]);
+        // Update local state to show the new images immediately
+        if (result.images) {
+          setImages(prev => [...prev, ...result.images!]);
         }
       } else {
-        alert(result.error || 'Failed to upload image');
+        alert(result.error || 'Failed to upload images');
       }
     } catch (err) {
       console.error('Upload error:', err);
-      alert('An unexpected error occurred. Please try a smaller file or check your connection.');
+      alert('An unexpected error occurred. Please try smaller files or check your connection.');
     } finally {
       setIsUploading(false);
     }
@@ -80,6 +82,7 @@ export default function HeroImagesForm({ initialImages }: { initialImages: HeroI
                   name="image" 
                   type="file" 
                   required 
+                  multiple
                   accept="image/*" 
                   className="block w-full text-sm text-stone-500
                     file:mr-4 file:py-2.5 file:px-4

@@ -11,6 +11,7 @@ interface ProductVariantState {
   price: string;
   stock: string;
   imageUrl: string;
+  images: string[];
 }
 
 interface ProductFormProps {
@@ -34,13 +35,14 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
     price: v.price?.toString() || '',
     stock: v.stock?.toString() || '',
     imageUrl: v.imageUrl || '',
+    images: v.images || [],
   })) || []);
 
   const addVariant = () => {
-    setVariants([...variants, { colorName: '', hexCode: '', price: '', stock: '', imageUrl: '' }]);
+    setVariants([...variants, { colorName: '', hexCode: '', price: '', stock: '', imageUrl: '', images: [] }]);
   };
 
-  const updateVariant = (index: number, field: keyof ProductVariantState, value: string) => {
+  const updateVariant = (index: number, field: keyof ProductVariantState, value: any) => {
     const newVariants = [...variants];
     newVariants[index] = { ...newVariants[index], [field]: value };
     setVariants(newVariants);
@@ -57,6 +59,24 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
     if (result.success && result.url) {
       updateVariant(index, 'imageUrl', result.url);
     }
+  };
+
+  const handleVariantImages = async (index: number, files: FileList) => {
+    const newImages = [...variants[index].images];
+    for (let i = 0; i < files.length; i++) {
+      const formData = new FormData();
+      formData.append('image', files[i]);
+      const result = await uploadVariantImage(formData);
+      if (result.success && result.url) {
+        newImages.push(result.url);
+      }
+    }
+    updateVariant(index, 'images', newImages);
+  };
+
+  const removeVariantImage = (variantIndex: number, imageIndex: number) => {
+    const newImages = variants[variantIndex].images.filter((_, i) => i !== imageIndex);
+    updateVariant(variantIndex, 'images', newImages);
   };
 
   const removeCurrentImage = (url: string) => {
@@ -290,16 +310,34 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
                     <input type="number" value={v.stock} onChange={(e) => updateVariant(idx, 'stock', e.target.value)} className="w-full text-xs p-2 border rounded" placeholder="0" />
                   </div>
                 </div>
-                <div className="mt-3 flex items-center gap-4">
-                  <div className="flex-1">
-                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Variant Image</label>
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Variant Thumbnail (Swatch)</label>
                     <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && handleVariantImage(idx, e.target.files[0])} className="text-[10px]" />
+                    {v.imageUrl && (
+                      <div className="mt-2 h-10 w-10 rounded border overflow-hidden bg-white">
+                        <img src={v.imageUrl} alt="Variant" className="h-full w-full object-cover" />
+                      </div>
+                    )}
                   </div>
-                  {v.imageUrl && (
-                    <div className="h-10 w-10 rounded border overflow-hidden bg-white">
-                      <img src={v.imageUrl} alt="Variant" className="h-full w-full object-cover" />
+                  <div>
+                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Clothing Pictures for this Variant</label>
+                    <input type="file" accept="image/*" multiple onChange={(e) => e.target.files && handleVariantImages(idx, e.target.files)} className="text-[10px]" />
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {v.images.map((img, imgIdx) => (
+                        <div key={imgIdx} className="relative h-10 w-10 rounded border overflow-hidden bg-white group">
+                          <img src={img} alt="Variant clothing" className="h-full w-full object-cover" />
+                          <button 
+                            type="button" 
+                            onClick={() => removeVariantImage(idx, imgIdx)}
+                            className="absolute inset-0 flex items-center justify-center bg-red-500/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             ))}
