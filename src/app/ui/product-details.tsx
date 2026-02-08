@@ -116,6 +116,10 @@ export default function ProductDetails({ product, categoryBreadcrumb, settings }
               {product.stock > 0 ? `In Stock (${product.stock} available)` : 'Out of Stock'}
             </span>
           </div>
+          <div className="flex justify-between text-sm items-center pb-3 border-b border-border/40">
+            <span className="text-foreground/60 uppercase tracking-tighter font-bold">Returns</span>
+            <span className="font-bold text-red-500/80">All sales final. No returns or exchanges.</span>
+          </div>
           <div className="flex justify-between text-sm items-center">
             <span className="text-foreground/60 uppercase tracking-tighter font-bold">Standard Shipping</span>
             <span className="text-foreground font-medium italic">Calculated at checkout</span>

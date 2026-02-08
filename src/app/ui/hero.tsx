@@ -61,7 +61,7 @@ export function Hero({ images }: { images: HeroImage[] }) {
           {/* Right Column: Carousel Visuals (Feature 1) */}
           <div className="relative flex flex-col justify-center lg:col-span-7">
              <motion.div
-                className="relative aspect-[3/4] w-full overflow-hidden bg-secondary md:aspect-[4/5] rounded-2xl shadow-2xl shadow-primary/5"
+                className="relative aspect-[3/4] w-full overflow-hidden bg-secondary md:aspect-[4/3] object-center rounded-2xl shadow-2xl shadow-primary/5"
                 initial={shouldReduceMotion ? { opacity: 0 } : { clipPath: 'inset(100% 0 0 0)' }}
                 animate={shouldReduceMotion ? { opacity: 1 } : { clipPath: 'inset(0 0 0 0)' }}
                 transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}

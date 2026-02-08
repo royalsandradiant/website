@@ -61,12 +61,12 @@ export default async function HomePage() {
             </p>
           </div>
           
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="flex flex-wrap justify-center gap-4">
             {categoryTree.map((category) => (
               <Link
                 key={category.id}
                 href={`/products/category/${category.slugPath}`}
-                className="group p-6 bg-secondary/80 rounded-lg text-center hover:bg-secondary transition-colors border border-border/50"
+                className="group p-6 bg-secondary/80 rounded-lg text-center hover:bg-secondary transition-colors border border-border/50 min-w-[200px] flex-1 sm:flex-none sm:w-[calc(50%-1rem)] lg:w-[calc(25%-1rem)]"
               >
                 <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
                   <span className="text-primary text-lg">✦</span>

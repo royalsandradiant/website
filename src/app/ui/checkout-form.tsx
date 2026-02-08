@@ -453,6 +453,12 @@ export default function CheckoutForm({
           </div>
 
           {/* Checkout Button */}
+          <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg">
+            <p className="text-[10px] text-red-600 font-bold uppercase tracking-widest text-center">
+              All sales are final • No returns or exchanges
+            </p>
+          </div>
+
           <button
             type="button"
             onClick={handleCheckout}
