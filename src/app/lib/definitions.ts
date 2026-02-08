@@ -47,6 +47,7 @@ export type Product = {
   salePercentage: number | null;
   isCombo: boolean;
   comboPrice: number | null;
+  sizeChartUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
   variants?: ProductVariant[];
@@ -67,6 +68,19 @@ export type ProductWithCategory = Product & {
   categoryRef: Category | null;
 };
 
+// Coupon types
+export type Coupon = {
+  id: string;
+  code: string;
+  discountType: 'PERCENTAGE' | 'FIXED';
+  discountValue: number;
+  minOrderAmount: number | null;
+  isActive: boolean;
+  expiresAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 // Form state types
 export type State = {
   errors?: {
@@ -76,6 +90,7 @@ export type State = {
     category?: string[];
     categoryId?: string[];
     stock?: string[];
+    sizeChartUrl?: string[];
   };
   message?: string | null;
 };
@@ -104,6 +119,8 @@ export type StoreSettings = {
   comboDiscount3: number;
   estimatedDeliveryMin: number;
   estimatedDeliveryMax: number;
+  allowStorePickup: boolean;
+  pickupAddress: string | null;
 };
 
 export type CategoryState = {

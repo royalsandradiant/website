@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Italiana, Mulish } from "next/font/google";
+import { Italiana, Montserrat } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/app/lib/cart-context";
 import { PageTransition } from "@/app/ui/page-transition";
@@ -13,8 +13,8 @@ const italiana = Italiana({
   display: "swap",
 });
 
-const mulish = Mulish({
-  variable: "--font-mulish",
+const montserrat = Montserrat({
+  variable: "--font-montserrat",
   subsets: ["latin"],
   display: "swap",
 });
@@ -92,7 +92,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <body
-        className={`${italiana.variable} ${mulish.variable} antialiased bg-background text-foreground selection:bg-accent selection:text-accent-foreground min-h-screen`}
+        className={`${italiana.variable} ${montserrat.variable} antialiased bg-background text-foreground selection:bg-accent selection:text-accent-foreground min-h-screen font-sans`}
       >
         <CartProvider>
           <PageTransition>

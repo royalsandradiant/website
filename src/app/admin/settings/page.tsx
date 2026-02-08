@@ -1,19 +1,42 @@
-import { fetchComboSettings, fetchAllHeroImages, fetchShippingRules } from '@/app/lib/data';
+import { fetchComboSettings, fetchAllHeroImages, fetchShippingRules, fetchCoupons } from '@/app/lib/data';
 import ComboSettingsForm from './combo-settings-form';
 import DeliverySettingsForm from './delivery-settings-form';
 import ShippingRulesForm from './shipping-rules-form';
 import HeroImagesForm from './hero-images-form';
+import CouponSettingsForm from './coupon-settings-form';
 
 export default async function SettingsPage() {
   const settings = await fetchComboSettings();
   const heroImages = await fetchAllHeroImages();
   const shippingRules = await fetchShippingRules();
+  const coupons = await fetchCoupons();
 
   return (
     <div className="w-full pb-20">
       <h1 className="text-2xl mb-8">Settings</h1>
       
       <div className="space-y-12">
+        {/* Coupons */}
+        <section className="rounded-lg bg-gray-50 p-6 border border-gray-200">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-500/10 text-amber-600">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 5l-1.761 1.761a2 2 0 0 0 0 2.828L15 11.35" />
+                <path d="M10 13l-2 2" />
+                <rect x="2" y="5" width="20" height="14" rx="2" />
+                <path d="M12 12h.01" />
+                <path d="M16 12h.01" />
+                <path d="M8 12h.01" />
+              </svg>
+            </span>
+            Discount Coupons
+          </h2>
+          <p className="text-sm text-gray-600 mb-6">
+            Create and manage discount codes for your customers.
+          </p>
+          <CouponSettingsForm initialCoupons={coupons} />
+        </section>
+
         {/* Delivery Settings */}
         <section className="rounded-lg bg-gray-50 p-6 border border-gray-200">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -25,14 +48,16 @@ export default async function SettingsPage() {
                 <circle cx="18.5" cy="18.5" r="2.5" />
               </svg>
             </span>
-            Delivery & Timeline
+            Delivery & Pickup
           </h2>
           <p className="text-sm text-gray-600 mb-6">
-            Set the estimated delivery window displayed on product pages.
+            Set the estimated delivery window and configure store pickup options.
           </p>
           <DeliverySettingsForm 
             minDays={settings.estimatedDeliveryMin} 
             maxDays={settings.estimatedDeliveryMax} 
+            allowPickup={settings.allowStorePickup}
+            pickupAddr={settings.pickupAddress}
           />
         </section>
 

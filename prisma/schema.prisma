@@ -100,6 +100,7 @@ model Product {
   salePercentage Int?
   isCombo     Boolean     @default(false)
   comboPrice  Decimal?
+  sizeChartUrl String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   OrderItems  OrderItem[]
@@ -118,6 +119,9 @@ model Order {
   totalAmount   Decimal
   status        String      @default("PENDING") // PENDING, COMPLETED, CANCELLED
   paymentId     String? // Stripe Payment ID
+  isPickup      Boolean     @default(false)
+  couponCode    String?
+  discountAmount Decimal?
   createdAt     DateTime    @default(now())
   items         OrderItem[]
 }
@@ -140,8 +144,22 @@ model Settings {
   comboDiscount3       Int      @default(15)
   estimatedDeliveryMin Int      @default(2)
   estimatedDeliveryMax Int      @default(4)
+  allowStorePickup     Boolean  @default(false)
+  pickupAddress        String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+}
+
+model Coupon {
+  id            String    @id @default(cuid())
+  code          String    @unique
+  discountType  String    // PERCENTAGE, FIXED
+  discountValue Decimal
+  minOrderAmount Decimal?
+  isActive      Boolean   @default(true)
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model HeroImage {

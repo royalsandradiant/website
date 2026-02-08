@@ -355,6 +355,7 @@ const ProductSchema = z.object({
     z.number().min(0, 'Percentage must be at least 0').max(100, 'Percentage cannot exceed 100').nullable()
   ),
   isCombo: z.boolean().default(false),
+  sizeChartUrl: z.string().optional().nullable(),
 });
 
 const CreateProduct = ProductSchema.omit({ id: true });
@@ -378,6 +379,7 @@ export async function createProduct(_prevState: State, formData: FormData) {
     salePrice: isOnSaleValue && salePriceValue ? salePriceValue : null,
     salePercentage: isOnSaleValue && salePercentageValue ? salePercentageValue : null,
     isCombo: isComboValue,
+    sizeChartUrl: formData.get('sizeChartUrl'),
   });
 
   if (!validatedFields.success) {
@@ -387,7 +389,7 @@ export async function createProduct(_prevState: State, formData: FormData) {
     };
   }
 
-  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage, isCombo } = validatedFields.data;
+  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage, isCombo, sizeChartUrl } = validatedFields.data;
   
   // Calculate sale price if percentage is provided
   let finalSalePrice = salePrice;
@@ -442,6 +444,7 @@ export async function createProduct(_prevState: State, formData: FormData) {
         salePrice: finalSalePrice || null,
         salePercentage: salePercentage || null,
         isCombo,
+        sizeChartUrl,
         images,
         variants: {
           create: JSON.parse(formData.get('variantsJson') as string || '[]').map((v: any) => ({
@@ -486,6 +489,7 @@ export async function updateProduct(id: string, _prevState: State, formData: For
     salePrice: isOnSaleValue && salePriceValue ? salePriceValue : null,
     salePercentage: isOnSaleValue && salePercentageValue ? salePercentageValue : null,
     isCombo: isComboValue,
+    sizeChartUrl: formData.get('sizeChartUrl'),
   });
 
   if (!validatedFields.success) {
@@ -495,7 +499,7 @@ export async function updateProduct(id: string, _prevState: State, formData: For
     };
   }
 
-  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage, isCombo } = validatedFields.data;
+  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage, isCombo, sizeChartUrl } = validatedFields.data;
   
   // Calculate sale price if percentage is provided
   let finalSalePrice = salePrice;
@@ -564,6 +568,7 @@ export async function updateProduct(id: string, _prevState: State, formData: For
           salePrice: finalSalePrice || null,
           salePercentage: salePercentage || null,
           isCombo,
+          sizeChartUrl,
           images,
           variants: {
             create: variants.map((v: any) => ({
@@ -1076,7 +1081,9 @@ export type ShippingInfo = {
 export async function createStripeCheckoutSession(
   items: CheckoutItem[],
   shippingInfo: ShippingInfo,
-  shippingCost: number = 0
+  shippingCost: number = 0,
+  coupon?: { code: string; discountAmount: number },
+  isPickup: boolean = false
 ): Promise<{ url: string | null; error?: string }> {
   try {
     // Get base URL with fallback for local development
@@ -1096,16 +1103,18 @@ export async function createStripeCheckoutSession(
       // Update existing customer with new shipping info
       const customer = await stripe.customers.update(existingCustomers.data[0].id, {
         name: shippingInfo.customerName,
-        shipping: {
-          name: shippingInfo.customerName,
-          address: {
-            line1: shippingInfo.addressLine1,
-            line2: shippingInfo.addressLine2 || undefined,
-            city: shippingInfo.city,
-            postal_code: shippingInfo.postalCode,
-            country: shippingInfo.country,
+        ...(!isPickup && {
+          shipping: {
+            name: shippingInfo.customerName,
+            address: {
+              line1: shippingInfo.addressLine1,
+              line2: shippingInfo.addressLine2 || undefined,
+              city: shippingInfo.city,
+              postal_code: shippingInfo.postalCode,
+              country: shippingInfo.country,
+            },
           },
-        },
+        }),
       });
       customerId = customer.id;
     } else {
@@ -1113,16 +1122,18 @@ export async function createStripeCheckoutSession(
       const customer = await stripe.customers.create({
         email: shippingInfo.customerEmail,
         name: shippingInfo.customerName,
-        shipping: {
-          name: shippingInfo.customerName,
-          address: {
-            line1: shippingInfo.addressLine1,
-            line2: shippingInfo.addressLine2 || undefined,
-            city: shippingInfo.city,
-            postal_code: shippingInfo.postalCode,
-            country: shippingInfo.country,
+        ...(!isPickup && {
+          shipping: {
+            name: shippingInfo.customerName,
+            address: {
+              line1: shippingInfo.addressLine1,
+              line2: shippingInfo.addressLine2 || undefined,
+              city: shippingInfo.city,
+              postal_code: shippingInfo.postalCode,
+              country: shippingInfo.country,
+            },
           },
-        },
+        }),
       });
       customerId = customer.id;
     }
@@ -1148,6 +1159,21 @@ export async function createStripeCheckoutSession(
             name: 'Shipping & Handling',
           },
           unit_amount: Math.round(shippingCost * 100),
+        },
+        quantity: 1,
+      });
+    }
+
+    // Add Coupon as a negative line item if Stripe Coupons aren't used directly
+    // Alternatively, we could create a Stripe Coupon on the fly, but negative line item is simpler for one-off discounts
+    if (coupon && coupon.discountAmount > 0) {
+      lineItems.push({
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: `Discount: ${coupon.code}`,
+          },
+          unit_amount: -Math.round(coupon.discountAmount * 100),
         },
         quantity: 1,
       });
@@ -1183,6 +1209,9 @@ export async function createStripeCheckoutSession(
           postalCode: shippingInfo.postalCode,
           country: shippingInfo.country,
           items: JSON.stringify(itemsMetadata),
+          couponCode: coupon?.code || '',
+          discountAmount: coupon?.discountAmount.toString() || '0',
+          isPickup: isPickup ? 'true' : 'false',
         },
       },
       metadata: {
@@ -1194,10 +1223,15 @@ export async function createStripeCheckoutSession(
         postalCode: shippingInfo.postalCode,
         country: shippingInfo.country,
         items: JSON.stringify(itemsMetadata),
+        couponCode: coupon?.code || '',
+        discountAmount: coupon?.discountAmount.toString() || '0',
+        isPickup: isPickup ? 'true' : 'false',
       },
-      shipping_address_collection: {
-        allowed_countries: ['US', 'CA', 'GB', 'AU', 'IN'],
-      },
+      ...(!isPickup && {
+        shipping_address_collection: {
+          allowed_countries: ['US', 'CA', 'GB', 'AU', 'IN'],
+        },
+      }),
     });
 
     return { url: session.url };
@@ -1384,6 +1418,9 @@ export async function handleStripeWebhook(payload: string, signature: string) {
       const totalAmount = (session.amount_total || 0) / 100;
       const customerEmail = session.customer_details?.email || session.customer_email || '';
       const customerName = metadata.customerName || session.customer_details?.name || '';
+      const couponCode = metadata.couponCode || null;
+      const discountAmount = metadata.discountAmount ? parseFloat(metadata.discountAmount) : 0;
+      const isPickup = metadata.isPickup === 'true';
 
       // Create order in database
       const order = await prisma.order.create({
@@ -1399,6 +1436,9 @@ export async function handleStripeWebhook(payload: string, signature: string) {
           totalAmount,
           paymentId: session.payment_intent as string,
           status: 'COMPLETED',
+          couponCode,
+          discountAmount,
+          isPickup,
           items: {
             create: items.map((item) => ({
               // Use originalProductId for combo items, otherwise use the regular id
@@ -1513,6 +1553,8 @@ export async function updateStoreSettings(data: {
   comboDiscount3?: number;
   estimatedDeliveryMin?: number;
   estimatedDeliveryMax?: number;
+  allowStorePickup?: boolean;
+  pickupAddress?: string | null;
 }) {
   try {
     await prisma.settings.upsert({
@@ -1524,6 +1566,8 @@ export async function updateStoreSettings(data: {
         comboDiscount3: data.comboDiscount3 ?? 15,
         estimatedDeliveryMin: data.estimatedDeliveryMin ?? 2,
         estimatedDeliveryMax: data.estimatedDeliveryMax ?? 4,
+        allowStorePickup: data.allowStorePickup ?? false,
+        pickupAddress: data.pickupAddress ?? null,
       },
     });
     revalidatePath('/admin/settings');
@@ -1638,5 +1682,80 @@ export async function uploadVariantImage(formData: FormData) {
     return { success: true, url: blob.url };
   } catch (e) {
     return { success: false, error: 'Upload failed' };
+  }
+}
+
+// Coupon Actions
+export async function createCoupon(formData: FormData) {
+  const code = (formData.get('code') as string).toUpperCase();
+  const discountType = formData.get('discountType') as 'PERCENTAGE' | 'FIXED';
+  const discountValue = parseFloat(formData.get('discountValue') as string);
+  const minOrderAmount = formData.get('minOrderAmount') ? parseFloat(formData.get('minOrderAmount') as string) : null;
+
+  try {
+    const coupon = await prisma.coupon.create({
+      data: {
+        code,
+        discountType,
+        discountValue,
+        minOrderAmount,
+      },
+    });
+    revalidatePath('/admin/settings');
+    return { 
+      success: true, 
+      coupon: {
+        ...coupon,
+        discountType: coupon.discountType as 'PERCENTAGE' | 'FIXED',
+        discountValue: Number(coupon.discountValue),
+        minOrderAmount: coupon.minOrderAmount ? Number(coupon.minOrderAmount) : null,
+      }
+    };
+  } catch (error) {
+    console.error('Database Error:', error);
+    return { success: false, error: 'Failed to create coupon. Code might already exist.' };
+  }
+}
+
+export async function deleteCoupon(id: string) {
+  try {
+    await prisma.coupon.delete({ where: { id } });
+    revalidatePath('/admin/settings');
+    return { success: true };
+  } catch (error) {
+    console.error('Database Error:', error);
+    return { success: false, error: 'Failed to delete coupon.' };
+  }
+}
+
+export async function validateCoupon(code: string, orderAmount: number) {
+  try {
+    const coupon = await prisma.coupon.findUnique({
+      where: { code: code.toUpperCase(), isActive: true },
+    });
+
+    if (!coupon) {
+      return { success: false, error: 'Invalid or expired coupon code.' };
+    }
+
+    if (coupon.minOrderAmount && orderAmount < Number(coupon.minOrderAmount)) {
+      return { success: false, error: `Minimum order amount of $${coupon.minOrderAmount} required.` };
+    }
+
+    if (coupon.expiresAt && coupon.expiresAt < new Date()) {
+      return { success: false, error: 'This coupon has expired.' };
+    }
+
+    return {
+      success: true,
+      coupon: {
+        code: coupon.code,
+        discountType: coupon.discountType as 'PERCENTAGE' | 'FIXED',
+        discountValue: Number(coupon.discountValue),
+      }
+    };
+  } catch (error) {
+    console.error('Database Error:', error);
+    return { success: false, error: 'Failed to validate coupon.' };
   }
 }

@@ -369,6 +369,24 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
           </div>
         </div>
 
+        {/* Size Chart URL */}
+        <div className="mb-4">
+          <label htmlFor="sizeChartUrl" className="mb-2 block text-sm font-medium">
+            Size Chart Image URL (Optional)
+          </label>
+          <input
+            id="sizeChartUrl"
+            name="sizeChartUrl"
+            type="url"
+            defaultValue={product?.sizeChartUrl}
+            placeholder="https://example.com/size-chart.png"
+            className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Provide a link to a size chart image. This will show a &quot;Size Guide&quot; link on the product page.
+          </p>
+        </div>
+
         {/* Images */}
         <div className="mb-4">
           <label htmlFor="images" className="mb-2 block text-sm font-medium">

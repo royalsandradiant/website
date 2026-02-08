@@ -4,6 +4,7 @@ import { useState } from 'react';
 import ImageGallery from '@/app/ui/image-gallery';
 import AddToCart from '@/app/ui/add-to-cart';
 import type { Product, ProductWithCategory } from '@/app/lib/definitions';
+import { Ruler, X } from 'lucide-react';
 
 interface ProductDetailsProps {
   product: any;
@@ -13,6 +14,9 @@ interface ProductDetailsProps {
 
 export default function ProductDetails({ product, categoryBreadcrumb, settings }: ProductDetailsProps) {
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
+  const [showSizeChart, setShowSizeChart] = useState(false);
+
+  if (!product) return null;
 
   const isOnSale = product.isOnSale && product.salePrice;
   const displayPrice = isOnSale ? Number(product.salePrice) : Number(product.price);
@@ -59,6 +63,16 @@ export default function ProductDetails({ product, categoryBreadcrumb, settings }
         <h1 className="font-display text-4xl md:text-5xl text-foreground mb-4">
           {product.name}
         </h1>
+
+        {product.sizeChartUrl && (
+          <button 
+            onClick={() => setShowSizeChart(true)}
+            className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors mb-6 group"
+          >
+            <Ruler className="h-4 w-4 group-hover:rotate-12 transition-transform" />
+            <span className="underline underline-offset-4">View Size Guide</span>
+          </button>
+        )}
         
         {/* Delivery Info */}
         <div className="flex items-center gap-2 mb-6 text-sm text-foreground/60 bg-blue-50/50 p-3 rounded-lg border border-blue-100 max-w-fit">
@@ -113,6 +127,39 @@ export default function ProductDetails({ product, categoryBreadcrumb, settings }
           onVariantChange={setSelectedVariant} 
         />
       </div>
+
+      {/* Size Chart Modal */}
+      {showSizeChart && product.sizeChartUrl && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="relative bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="font-display text-2xl">Size Guide</h3>
+              <button 
+                onClick={() => setShowSizeChart(false)}
+                className="p-2 hover:bg-secondary/50 rounded-full transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6 overflow-auto flex justify-center bg-secondary/10">
+              <img 
+                src={product.sizeChartUrl} 
+                alt="Size Chart" 
+                className="max-w-full h-auto rounded-lg shadow-sm"
+              />
+            </div>
+            <div className="p-6 border-t bg-white text-center">
+              <p className="text-sm text-foreground/60 italic">
+                * Measurements are in inches unless otherwise specified. If you are between sizes, we recommend sizing up.
+              </p>
+            </div>
+          </div>
+          <div 
+            className="absolute inset-0 -z-10" 
+            onClick={() => setShowSizeChart(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }

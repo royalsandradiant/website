@@ -375,7 +375,14 @@ export async function fetchComboSettings() {
     // Safety check for prisma.settings existence
     if (!prisma.settings) {
       console.warn('prisma.settings is undefined. This may be due to an outdated Prisma client.');
-      return { comboDiscount2: 10, comboDiscount3: 15, estimatedDeliveryMin: 2, estimatedDeliveryMax: 4 };
+      return { 
+        comboDiscount2: 10, 
+        comboDiscount3: 15, 
+        estimatedDeliveryMin: 2, 
+        estimatedDeliveryMax: 4,
+        allowStorePickup: false,
+        pickupAddress: null
+      };
     }
 
     let settings = await prisma.settings.findUnique({
@@ -391,6 +398,8 @@ export async function fetchComboSettings() {
           comboDiscount3: 15,
           estimatedDeliveryMin: 2,
           estimatedDeliveryMax: 4,
+          allowStorePickup: false,
+          pickupAddress: null,
         },
       });
     }
@@ -400,11 +409,55 @@ export async function fetchComboSettings() {
       comboDiscount3: settings.comboDiscount3,
       estimatedDeliveryMin: settings.estimatedDeliveryMin,
       estimatedDeliveryMax: settings.estimatedDeliveryMax,
+      allowStorePickup: settings.allowStorePickup,
+      pickupAddress: settings.pickupAddress,
     };
   } catch (error) {
     console.error('Database Error:', error);
     // Fallback to default if there's an error
-    return { comboDiscount2: 10, comboDiscount3: 15, estimatedDeliveryMin: 2, estimatedDeliveryMax: 4 };
+    return { 
+      comboDiscount2: 10, 
+      comboDiscount3: 15, 
+      estimatedDeliveryMin: 2, 
+      estimatedDeliveryMax: 4,
+      allowStorePickup: false,
+      pickupAddress: null
+    };
+  }
+}
+
+export async function fetchCoupons() {
+  try {
+    const coupons = await prisma.coupon.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    return coupons.map(c => ({
+      ...c,
+      discountType: c.discountType as 'PERCENTAGE' | 'FIXED',
+      discountValue: Number(c.discountValue),
+      minOrderAmount: c.minOrderAmount ? Number(c.minOrderAmount) : null,
+    }));
+  } catch (error) {
+    console.error('Database Error:', error);
+    return [];
+  }
+}
+
+export async function fetchCouponByCode(code: string) {
+  try {
+    const coupon = await prisma.coupon.findUnique({
+      where: { code: code.toUpperCase() },
+    });
+    if (!coupon) return null;
+    return {
+      ...coupon,
+      discountType: coupon.discountType as 'PERCENTAGE' | 'FIXED',
+      discountValue: Number(coupon.discountValue),
+      minOrderAmount: coupon.minOrderAmount ? Number(coupon.minOrderAmount) : null,
+    };
+  } catch (error) {
+    console.error('Database Error:', error);
+    return null;
   }
 }
 
