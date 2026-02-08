@@ -29,14 +29,15 @@ export default function CheckoutForm({
   } | null>(null);
   const [couponError, setCouponError] = useState('');
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
-
-  if (!items || items.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-lg text-foreground/60">Your cart is empty.</p>
-      </div>
-    );
-  }
+  const [formData, setFormData] = useState({
+    customerName: '',
+    customerEmail: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    postalCode: '',
+    country: '',
+  });
 
   // Calculate Discount
   const discountAmount = useMemo(() => {
@@ -60,16 +61,15 @@ export default function CheckoutForm({
     return rule ? Number(rule.price) : 0;
   }, [subtotalAfterDiscount, shippingRules, isPickup]);
 
+  if (!items || items.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-lg text-foreground/60">Your cart is empty.</p>
+      </div>
+    );
+  }
+
   const finalTotal = subtotalAfterDiscount + shippingCost;
-  const [formData, setFormData] = useState({
-    customerName: '',
-    customerEmail: '',
-    addressLine1: '',
-    addressLine2: '',
-    city: '',
-    postalCode: '',
-    country: '',
-  });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
