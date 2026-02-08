@@ -4,6 +4,9 @@ import "./globals.css";
 import { CartProvider } from "@/app/lib/cart-context";
 import { PageTransition } from "@/app/ui/page-transition";
 
+import { SpeedInsights } from "@vercel/speed-insights/next"
+import { Analytics } from "@vercel/analytics/next"
+
 import { getBaseUrl } from "@/app/lib/utils";
 
 const italiana = Italiana({
@@ -92,6 +95,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="scroll-smooth">
+    <SpeedInsights/>
+    <Analytics/>
       <body
         className={`${italiana.variable} ${montserrat.variable} antialiased bg-background text-foreground selection:bg-accent selection:text-accent-foreground min-h-screen font-sans`}
       >
