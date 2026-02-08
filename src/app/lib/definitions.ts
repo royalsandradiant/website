@@ -48,6 +48,7 @@ export type Product = {
   isCombo: boolean;
   comboPrice: number | null;
   sizeChartUrl: string | null;
+  sizes: string[];
   createdAt: Date;
   updatedAt: Date;
   variants?: ProductVariant[];
@@ -62,6 +63,7 @@ export type ProductVariant = {
   images: string[];
   price: number | null;
   stock: number;
+  sizes: string[];
 };
 
 export type ProductWithCategory = Product & {
@@ -91,6 +93,7 @@ export type State = {
     categoryId?: string[];
     stock?: string[];
     sizeChartUrl?: string[];
+    sizes?: string[];
   };
   message?: string | null;
 };

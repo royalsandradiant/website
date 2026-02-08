@@ -121,7 +121,7 @@ export function ProductGrid({ products }: { products: (Product | ProductWithCate
 
               {/* Minimal Info */}
               <div className="text-center">
-                 <h3 className="font-display text-lg text-foreground group-hover:text-primary transition-colors">
+                 <h3 className="font-display text-2xl font-bold text-foreground group-hover:text-primary transition-colors">
                    {product.name}
                  </h3>
                  <div className="mt-1 flex items-center justify-center gap-1.5 flex-wrap tabular-nums">

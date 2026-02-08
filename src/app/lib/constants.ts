@@ -17,3 +17,5 @@ export const categoryDefinitions: Record<string, { description: string; subcateg
     subcategories: ['Jhumkas', 'Chandbalis', 'Kundans', 'Studs', 'Hoops', 'Dangles'],
   },
 };
+
+export const AVAILABLE_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL', '6XL'];

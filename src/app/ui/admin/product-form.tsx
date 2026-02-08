@@ -4,12 +4,14 @@ import { useActionState, useState } from 'react';
 import Link from 'next/link';
 import { createProduct, updateProduct, uploadVariantImage } from '@/app/lib/actions';
 import type { Product, ProductWithCategory, LeafCategory } from '@/app/lib/definitions';
+import { AVAILABLE_SIZES } from '@/app/lib/constants';
 
 interface ProductVariantState {
   colorName: string;
   hexCode: string;
   price: string;
   stock: string;
+  sizes: string[];
   imageUrl: string;
   images: string[];
 }
@@ -25,6 +27,7 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
   const [state, dispatch] = useActionState(action, initialState);
   
   const [selectedCategoryId, setSelectedCategoryId] = useState(product?.categoryId || '');
+  const [productSizes, setProductSizes] = useState<string[]>(product?.sizes || []);
   const [isOnSale, setIsOnSale] = useState(product?.isOnSale || false);
   const [isFeatured, setIsFeatured] = useState(product?.isFeatured || false);
   const [isCombo, setIsCombo] = useState(product?.isCombo || false);
@@ -34,12 +37,13 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
     hexCode: v.hexCode || '',
     price: v.price?.toString() || '',
     stock: v.stock?.toString() || '',
+    sizes: v.sizes || [],
     imageUrl: v.imageUrl || '',
     images: v.images || [],
   })) || []);
 
   const addVariant = () => {
-    setVariants([...variants, { colorName: '', hexCode: '', price: '', stock: '', imageUrl: '', images: [] }]);
+    setVariants([...variants, { colorName: '', hexCode: '', price: '', stock: '', sizes: [], imageUrl: '', images: [] }]);
   };
 
   const updateVariant = (index: number, field: keyof ProductVariantState, value: any) => {
@@ -86,6 +90,7 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
   return (
     <form action={dispatch} className="space-y-6">
       <input type="hidden" name="variantsJson" value={JSON.stringify(variants)} />
+      <input type="hidden" name="sizesJson" value={JSON.stringify(productSizes)} />
       <div className="rounded-md bg-gray-50 p-4 md:p-6">
         {/* Product Name */}
         <div className="mb-4">
@@ -280,6 +285,38 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
           </div>
         </div>
 
+        {/* Product Sizes */}
+        <div className="mb-4 p-4 border border-dashed border-gray-300 rounded-lg bg-white">
+          <label className="mb-2 block text-sm font-medium">
+            Available Sizes (Product-wide)
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {AVAILABLE_SIZES.map((size) => (
+              <button
+                key={size}
+                type="button"
+                onClick={() => {
+                  if (productSizes.includes(size)) {
+                    setProductSizes(productSizes.filter(s => s !== size));
+                  } else {
+                    setProductSizes([...productSizes, size]);
+                  }
+                }}
+                className={`px-3 py-1 rounded-md border text-sm transition-colors ${
+                  productSizes.includes(size)
+                    ? 'bg-blue-500 text-white border-blue-500'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
+                }`}
+              >
+                {size}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-gray-500">
+            Select sizes available for this product. These will be the default sizes for all variants unless overridden.
+          </p>
+        </div>
+
         {/* Color Variants Section */}
         <div className="mb-4 p-4 border border-dashed border-gray-300 rounded-lg bg-white">
           <h3 className="text-sm font-bold mb-4 uppercase tracking-wider text-gray-500">Color Variants</h3>
@@ -310,6 +347,34 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
                     <input type="number" value={v.stock} onChange={(e) => updateVariant(idx, 'stock', e.target.value)} className="w-full text-xs p-2 border rounded" placeholder="0" />
                   </div>
                 </div>
+                
+                {/* Variant Sizes */}
+                <div className="mt-3">
+                  <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Sizes for this Color</label>
+                  <div className="flex flex-wrap gap-1">
+                    {AVAILABLE_SIZES.map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => {
+                          const currentSizes = v.sizes || [];
+                          const newSizes = currentSizes.includes(size)
+                            ? currentSizes.filter(s => s !== size)
+                            : [...currentSizes, size];
+                          updateVariant(idx, 'sizes', newSizes);
+                        }}
+                        className={`px-2 py-0.5 rounded border text-[10px] transition-colors ${
+                          (v.sizes || []).includes(size)
+                            ? 'bg-blue-500 text-white border-blue-500'
+                            : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Variant Thumbnail (Swatch)</label>

@@ -133,6 +133,7 @@ export default function CheckoutForm({
           images: item.imagePath ? [item.imagePath] : [],
           comboId: item.comboId,
           originalProductId: item.originalProductId,
+          size: item.size,
         })),
         isPickup ? {
           customerName: formData.customerName,
@@ -360,9 +361,16 @@ export default function CheckoutForm({
           <div className="space-y-4 mb-6">
             {items.map((item) => (
               <div key={item.id} className="flex justify-between text-sm tabular-nums">
-                <span className="text-foreground/70">
-                  {item.name} × {item.quantity}
-                </span>
+                <div className="flex flex-col">
+                  <span className="text-foreground/70">
+                    {item.name} × {item.quantity}
+                  </span>
+                  {item.size && (
+                    <span className="text-[10px] text-foreground/40 font-bold uppercase">
+                      Size: {item.size}
+                    </span>
+                  )}
+                </div>
                 <span className="font-medium text-foreground">
                   ${(item.price * item.quantity).toFixed(2)}
                 </span>

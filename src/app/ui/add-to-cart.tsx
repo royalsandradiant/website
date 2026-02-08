@@ -10,9 +10,14 @@ export default function AddToCart({ product, onVariantChange }: { product: Produ
   const [isAdded, setIsAdded] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
+  const [selectedSize, setSelectedSize] = useState<string>("");
 
   const handleVariantSelect = (variant: any) => {
     setSelectedVariant(variant);
+    // Reset size if the new variant doesn't support the currently selected size
+    if (variant.sizes && variant.sizes.length > 0 && !variant.sizes.includes(selectedSize)) {
+      setSelectedSize("");
+    }
     if (onVariantChange) {
       onVariantChange(variant);
     }
@@ -20,6 +25,7 @@ export default function AddToCart({ product, onVariantChange }: { product: Produ
 
   const handleClearVariant = () => {
     setSelectedVariant(null);
+    setSelectedSize("");
     if (onVariantChange) {
       onVariantChange(null);
     }
@@ -33,7 +39,19 @@ export default function AddToCart({ product, onVariantChange }: { product: Produ
 
   const effectivePrice = selectedVariant?.price ? Number(selectedVariant.price) : basePrice;
 
+  const isOutOfStock = product.stock <= 0 && (!selectedVariant || selectedVariant.stock <= 0);
+
+  const availableSizes = selectedVariant?.sizes?.length > 0 
+    ? selectedVariant.sizes 
+    : (product.sizes?.length > 0 ? product.sizes : []);
+
   const handleAddToCart = () => {
+    // If sizes are available, one must be selected
+    if (availableSizes.length > 0 && !selectedSize) {
+      alert("Please select a size");
+      return;
+    }
+
     addItem({
       id: product.id,
       name: selectedVariant ? `${product.name} - ${selectedVariant.colorName}` : product.name,
@@ -41,12 +59,11 @@ export default function AddToCart({ product, onVariantChange }: { product: Produ
       quantity: quantity,
       imagePath: selectedVariant?.imageUrl || (product.images && product.images.length > 0 ? product.images[0] : ''),
       color: selectedVariant?.colorName,
+      size: selectedSize || undefined,
     });
     setIsAdded(true);
     setTimeout(() => setIsAdded(false), 2000);
   };
-
-  const isOutOfStock = product.stock <= 0 && (!selectedVariant || selectedVariant.stock <= 0);
 
   return (
     <div className="space-y-6">
@@ -92,6 +109,31 @@ export default function AddToCart({ product, onVariantChange }: { product: Produ
               Clear selection
             </button>
           )}
+        </div>
+      )}
+
+      {/* Size Selector */}
+      {availableSizes.length > 0 && (
+        <div className="space-y-3">
+          <span className="text-sm font-bold uppercase tracking-widest text-foreground/60">
+            Select Size:
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {availableSizes.map((size: string) => (
+              <button
+                key={size}
+                type="button"
+                onClick={() => setSelectedSize(size)}
+                className={`min-w-[45px] h-[45px] flex items-center justify-center rounded-lg border-2 font-bold transition-all ${
+                  selectedSize === size 
+                    ? 'border-primary bg-primary text-primary-foreground' 
+                    : 'border-border hover:border-primary/30 text-foreground'
+                }`}
+              >
+                {size}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

@@ -356,6 +356,7 @@ const ProductSchema = z.object({
   ),
   isCombo: z.boolean().default(false),
   sizeChartUrl: z.string().optional().nullable(),
+  sizes: z.array(z.string()).default([]),
 });
 
 const CreateProduct = ProductSchema.omit({ id: true });
@@ -380,6 +381,7 @@ export async function createProduct(_prevState: State, formData: FormData) {
     salePercentage: isOnSaleValue && salePercentageValue ? salePercentageValue : null,
     isCombo: isComboValue,
     sizeChartUrl: formData.get('existingSizeChartUrl') as string || null,
+    sizes: JSON.parse(formData.get('sizesJson') as string || '[]'),
   });
 
   if (!validatedFields.success) {
@@ -389,16 +391,16 @@ export async function createProduct(_prevState: State, formData: FormData) {
     };
   }
 
-  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage, isCombo } = validatedFields.data;
-  let { sizeChartUrl } = validatedFields.data;
+  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage, isCombo, sizes, sizeChartUrl } = validatedFields.data;
   
   // Handle size chart upload
   const sizeChartFile = formData.get('sizeChart') as File | null;
+  let finalSizeChartUrl = sizeChartUrl;
   if (sizeChartFile && sizeChartFile.size > 0) {
     const fileName = `size-charts/${randomUUID()}-${sizeChartFile.name}`;
     try {
       const blob = await put(fileName, sizeChartFile, { access: 'public' });
-      sizeChartUrl = blob.url;
+      finalSizeChartUrl = blob.url;
     } catch (e) {
       console.error("Size chart upload error", e);
       return { message: 'Size chart upload failed.' };
@@ -458,7 +460,8 @@ export async function createProduct(_prevState: State, formData: FormData) {
         salePrice: finalSalePrice || null,
         salePercentage: salePercentage || null,
         isCombo,
-        sizeChartUrl,
+        sizeChartUrl: finalSizeChartUrl,
+        sizes,
         images,
         variants: {
           create: JSON.parse(formData.get('variantsJson') as string || '[]').map((v: any) => ({
@@ -466,6 +469,7 @@ export async function createProduct(_prevState: State, formData: FormData) {
             hexCode: v.hexCode,
             price: v.price ? parseFloat(v.price) : null,
             stock: parseInt(v.stock || '0'),
+            sizes: v.sizes || [],
             imageUrl: v.imageUrl || null,
             images: v.images || [],
           })),
@@ -504,6 +508,7 @@ export async function updateProduct(id: string, _prevState: State, formData: For
     salePercentage: isOnSaleValue && salePercentageValue ? salePercentageValue : null,
     isCombo: isComboValue,
     sizeChartUrl: formData.get('existingSizeChartUrl') as string || null,
+    sizes: JSON.parse(formData.get('sizesJson') as string || '[]'),
   });
 
   if (!validatedFields.success) {
@@ -513,16 +518,16 @@ export async function updateProduct(id: string, _prevState: State, formData: For
     };
   }
 
-  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage, isCombo } = validatedFields.data;
-  let { sizeChartUrl } = validatedFields.data;
+  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage, isCombo, sizes, sizeChartUrl } = validatedFields.data;
 
   // Handle size chart upload
   const sizeChartFile = formData.get('sizeChart') as File | null;
+  let finalSizeChartUrl = sizeChartUrl;
   if (sizeChartFile && sizeChartFile.size > 0) {
     const fileName = `size-charts/${randomUUID()}-${sizeChartFile.name}`;
     try {
       const blob = await put(fileName, sizeChartFile, { access: 'public' });
-      sizeChartUrl = blob.url;
+      finalSizeChartUrl = blob.url;
     } catch (e) {
       console.error("Size chart upload error", e);
       return { message: 'Size chart upload failed.' };
@@ -596,7 +601,8 @@ export async function updateProduct(id: string, _prevState: State, formData: For
           salePrice: finalSalePrice || null,
           salePercentage: salePercentage || null,
           isCombo,
-          sizeChartUrl,
+          sizeChartUrl: finalSizeChartUrl,
+          sizes,
           images,
           variants: {
             create: variants.map((v: any) => ({
@@ -604,6 +610,7 @@ export async function updateProduct(id: string, _prevState: State, formData: For
               hexCode: v.hexCode,
               price: v.price ? parseFloat(v.price) : null,
               stock: parseInt(v.stock || '0'),
+              sizes: v.sizes || [],
               imageUrl: v.imageUrl || null,
               images: v.images || [],
             })),
@@ -807,7 +814,8 @@ const OrderSchema = z.object({
   items: z.array(z.object({
     id: z.string(),
     quantity: z.number(),
-    price: z.number()
+    price: z.number(),
+    size: z.string().optional().nullable(),
   }))
 });
 
@@ -837,7 +845,8 @@ export async function createOrder(data: z.infer<typeof OrderSchema>) {
           create: orderData.items.map(item => ({
              productId: item.id,
              quantity: item.quantity,
-             price: item.price
+             price: item.price,
+             size: item.size,
           }))
         }
       }
@@ -1065,10 +1074,11 @@ export async function getOrderBySessionId(sessionId: string) {
       totalAmount: Number(order.totalAmount),
       status: order.status,
       createdAt: order.createdAt,
-      items: order.items.map((item: { product: { name: string }; quantity: number; price: unknown }) => ({
+      items: order.items.map((item: { product: { name: string }; quantity: number; price: unknown; size: string | null }) => ({
         name: item.product.name,
         quantity: item.quantity,
         price: Number(item.price),
+        size: item.size,
       })),
       shippingAddress: {
         line1: order.addressLine1,
@@ -1094,6 +1104,7 @@ export type CheckoutItem = {
   comboId?: string;
   originalProductId?: string;
   color?: string;
+  size?: string;
 };
 
 export type ShippingInfo = {
@@ -1218,6 +1229,7 @@ export async function createStripeCheckoutSession(
       comboId: i.comboId || null,
       originalProductId: i.originalProductId || null,
       color: i.color || null,
+      size: i.size || null,
     }));
 
     const session = await stripe.checkout.sessions.create({
@@ -1274,6 +1286,7 @@ type OrderConfirmationItem = {
   name: string;
   quantity: number;
   price: number;
+  size?: string | null;
 };
 
 type OrderConfirmationData = {
@@ -1298,7 +1311,7 @@ async function sendOrderConfirmationEmail(data: OrderConfirmationData): Promise<
   const itemsHtml = items.map(item => `
     <tr>
       <td style="padding: 12px 0; border-bottom: 1px solid #DED8CD;">
-        <span style="font-size: 15px; color: #2C2A24;">${item.name}</span>
+        <span style="font-size: 15px; color: #2C2A24;">${item.name}${item.size ? ` (Size: ${item.size})` : ''}</span>
       </td>
       <td style="padding: 12px 0; border-bottom: 1px solid #DED8CD; text-align: center;">
         <span style="font-size: 15px; color: #2C2A24;">${item.quantity}</span>
@@ -1442,7 +1455,7 @@ export async function handleStripeWebhook(payload: string, signature: string) {
         throw new Error('Missing metadata in session');
       }
       
-      const items: { id: string; quantity: number; price: number; name?: string; comboId?: string | null; originalProductId?: string | null; color?: string | null }[] = JSON.parse(metadata.items);
+      const items: { id: string; quantity: number; price: number; name?: string; comboId?: string | null; originalProductId?: string | null; color?: string | null; size?: string | null }[] = JSON.parse(metadata.items);
       const totalAmount = (session.amount_total || 0) / 100;
       const customerEmail = session.customer_details?.email || session.customer_email || '';
       const customerName = metadata.customerName || session.customer_details?.name || '';
@@ -1475,6 +1488,7 @@ export async function handleStripeWebhook(payload: string, signature: string) {
               price: item.price,
               comboId: item.comboId || null,
               color: item.color || null,
+              size: item.size || null,
             })),
           },
         },
@@ -1502,6 +1516,7 @@ export async function handleStripeWebhook(payload: string, signature: string) {
           name: item.name || 'Item',
           quantity: item.quantity,
           price: item.price,
+          size: item.size,
         }));
       } else {
         // Fetch product names from database
@@ -1514,6 +1529,7 @@ export async function handleStripeWebhook(payload: string, signature: string) {
           name: productMap.get(item.id) ?? 'Item',
           quantity: item.quantity,
           price: item.price,
+          size: item.size,
         }));
       }
 

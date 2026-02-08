@@ -31,7 +31,7 @@ export default function CartPage() {
   const removeCombo = (comboId: string) => {
     items.forEach(item => {
       if (item.comboId === comboId) {
-        removeItem(item.id);
+        removeItem(item.id, item.color, item.size);
       }
     });
   };
@@ -136,13 +136,16 @@ export default function CartPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-display text-lg text-foreground truncate">{item.name}</h3>
+                {item.size && (
+                  <p className="text-xs text-foreground/50 font-bold uppercase">Size: {item.size}</p>
+                )}
                 <p className="font-sans text-primary font-medium">${item.price.toFixed(2)}</p>
               </div>
               <div className="flex items-center justify-between w-full sm:w-auto gap-4 sm:gap-6">
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                    onClick={() => updateQuantity(item.id, item.quantity - 1, item.color, item.size)}
                     className="rounded-full bg-secondary p-1.5 hover:bg-secondary/80 transition-colors"
                   >
                     <MinusIcon className="h-4 w-4" />
@@ -150,7 +153,7 @@ export default function CartPage() {
                   <span className="w-8 text-center font-medium">{item.quantity}</span>
                   <button
                     type="button"
-                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                    onClick={() => updateQuantity(item.id, item.quantity + 1, item.color, item.size)}
                     className="rounded-full bg-secondary p-1.5 hover:bg-secondary/80 transition-colors"
                   >
                     <PlusIcon className="h-4 w-4" />
@@ -158,7 +161,7 @@ export default function CartPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => removeItem(item.id)}
+                  onClick={() => removeItem(item.id, item.color, item.size)}
                   className="text-red-500 hover:text-red-600 transition-colors p-1"
                 >
                   <TrashIcon className="h-5 w-5" />
@@ -190,7 +193,12 @@ export default function CartPage() {
             <div className="mb-4 pb-4 border-b border-border">
               {regularItems.map((item) => (
                 <div key={item.id} className="flex justify-between text-sm mb-2">
-                  <span className="text-foreground/70 truncate max-w-[60%]">{item.name} x{item.quantity}</span>
+                  <div className="flex flex-col truncate max-w-[60%]">
+                    <span className="text-foreground/70 truncate">{item.name} x{item.quantity}</span>
+                    {item.size && (
+                      <span className="text-[10px] text-foreground/40 font-bold uppercase">Size: {item.size}</span>
+                    )}
+                  </div>
                   <span className="font-medium">${(item.price * item.quantity).toFixed(2)}</span>
                 </div>
               ))}
