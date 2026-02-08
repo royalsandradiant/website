@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { createHeroImage, deleteHeroImage, reorderHeroImages } from '@/app/lib/actions';
 import type { HeroImage } from '@/app/lib/definitions';
-import { motion, Reorder } from 'motion/react';
+import { AnimatePresence, motion, Reorder } from 'motion/react';
 
 export default function HeroImagesForm({ initialImages }: { initialImages: HeroImage[] }) {
   const [images, setImages] = useState<HeroImage[]>(initialImages);
@@ -11,19 +11,48 @@ export default function HeroImagesForm({ initialImages }: { initialImages: HeroI
 
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsUploading(true);
-    const formData = new FormData(e.currentTarget);
-    const result = await createHeroImage(formData);
-    if (result.success) {
-      // Form reset logic
-      (e.target as HTMLFormElement).reset();
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const file = formData.get('image') as File;
+    
+    if (!file || file.size === 0) return;
+
+    // Client-side size check (e.g., 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File is too large. Please upload an image smaller than 10MB.');
+      return;
     }
-    setIsUploading(false);
+
+    setIsUploading(true);
+    try {
+      const result = await createHeroImage(formData);
+      if (result.success) {
+        form.reset();
+        // Update local state to show the new image immediately
+        if (result.image) {
+          setImages(prev => [...prev, result.image!]);
+        }
+      } else {
+        alert(result.error || 'Failed to upload image');
+      }
+    } catch (err) {
+      console.error('Upload error:', err);
+      alert('An unexpected error occurred. Please try a smaller file or check your connection.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (confirm('Delete this image?')) {
-      await deleteHeroImage(id);
+      // Optimistic update
+      setImages(prev => prev.filter(img => img.id !== id));
+      const result = await deleteHeroImage(id);
+      if (!result.success) {
+        alert(result.error || 'Failed to delete image');
+        // Revert if failed (though revalidatePath usually handles this)
+        window.location.reload();
+      }
     }
   };
 
@@ -34,48 +63,138 @@ export default function HeroImagesForm({ initialImages }: { initialImages: HeroI
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {/* Upload Form */}
-      <form onSubmit={handleUpload} className="p-4 bg-white rounded-md border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4 items-end">
-        <div className="flex-1 w-full">
-          <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Upload New Hero Image</label>
-          <input name="image" type="file" required accept="image/*" className="w-full text-sm" />
+      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-border bg-stone-50/50">
+          <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Add New Hero Image</h3>
         </div>
-        <div className="w-full md:w-48">
-          <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Alt Text</label>
-          <input name="altText" type="text" className="w-full rounded border border-gray-300 p-2 text-sm" placeholder="e.g. Summer Collection" />
-        </div>
-        <button type="submit" disabled={isUploading} className="bg-purple-600 text-white rounded px-6 py-2 text-sm font-bold hover:bg-purple-700 disabled:opacity-50">
-          {isUploading ? 'Uploading...' : 'Upload'}
-        </button>
-      </form>
+        <form onSubmit={handleUpload} className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+            <div className="md:col-span-6">
+              <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">
+                Image File
+              </label>
+              <div className="relative group">
+                <input 
+                  name="image" 
+                  type="file" 
+                  required 
+                  accept="image/*" 
+                  className="block w-full text-sm text-stone-500
+                    file:mr-4 file:py-2.5 file:px-4
+                    file:rounded-lg file:border-0
+                    file:text-xs file:font-bold
+                    file:bg-stone-100 file:text-stone-700
+                    hover:file:bg-stone-200
+                    cursor-pointer transition-all" 
+                />
+              </div>
+            </div>
+            
+            <div className="md:col-span-4">
+              <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">
+                Alt Text (SEO)
+              </label>
+              <input 
+                name="altText" 
+                type="text" 
+                className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none" 
+                placeholder="e.g. New Winter Collection 2026" 
+              />
+            </div>
 
-      {/* List / Reorder */}
-      <Reorder.Group axis="y" values={images} onReorder={handleReorder} className="space-y-3">
-        {images.map((img) => (
-          <Reorder.Item key={img.id} value={img}>
-            <div className="flex items-center gap-4 p-3 bg-white rounded-md border border-gray-200 shadow-sm cursor-move group">
-              <div className="flex items-center justify-center w-6 text-gray-400">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
-              </div>
-              <div className="h-12 w-20 relative overflow-hidden rounded bg-gray-100">
-                <img src={img.imageUrl} alt={img.altText || ''} className="h-full w-full object-cover" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">{img.altText || 'No description'}</p>
-                <p className="text-[10px] text-gray-400 truncate max-w-xs">{img.imageUrl}</p>
-              </div>
-              <button onClick={() => handleDelete(img.id)} className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-50 rounded-full">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            <div className="md:col-span-2">
+              <button 
+                type="submit" 
+                disabled={isUploading} 
+                className="w-full bg-primary text-primary-foreground rounded-lg px-4 py-2.5 text-xs font-bold uppercase tracking-widest hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all shadow-sm"
+              >
+                {isUploading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Saving
+                  </span>
+                ) : 'Add Image'}
               </button>
             </div>
-          </Reorder.Item>
-        ))}
-      </Reorder.Group>
-      
-      {images.length === 0 && (
-        <p className="text-center text-gray-400 text-sm italic">No hero images uploaded yet. The default background will be used.</p>
-      )}
+          </div>
+        </form>
+      </div>
+
+      {/* List / Reorder */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+            Current Carousel ({images.length})
+          </h3>
+          {images.length > 1 && (
+            <span className="text-[10px] text-stone-400 italic">Drag to reorder</span>
+          )}
+        </div>
+
+        <Reorder.Group axis="y" values={images} onReorder={handleReorder} className="space-y-3">
+          <AnimatePresence mode="popLayout">
+            {images.map((img) => (
+              <Reorder.Item 
+                key={img.id} 
+                value={img}
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="relative"
+              >
+              <div className="flex items-center gap-6 p-4 bg-card rounded-xl border border-border shadow-sm hover:shadow-md hover:border-accent/30 transition-all cursor-grab active:cursor-grabbing group">
+                <div className="flex flex-col items-center justify-center gap-1 text-stone-300 group-hover:text-accent transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                </div>
+                
+                <div className="h-16 w-28 relative overflow-hidden rounded-lg bg-stone-100 border border-border/50 shrink-0">
+                  <img 
+                    src={img.imageUrl} 
+                    alt={img.altText || ''} 
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                  />
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">
+                    {img.altText || <span className="text-stone-400 italic font-normal">No description</span>}
+                  </p>
+                  <p className="text-[10px] text-stone-400 font-mono mt-0.5 truncate max-w-xs">
+                    {img.imageUrl.split('/').pop()}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => handleDelete(img.id)} 
+                    className="p-2.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                    title="Delete image"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                  </button>
+                </div>
+              </div>
+            </Reorder.Item>
+          ))}
+          </AnimatePresence>
+        </Reorder.Group>
+        
+        {images.length === 0 && (
+          <div className="py-12 text-center bg-stone-50/50 rounded-xl border-2 border-dashed border-stone-200">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-stone-100 text-stone-400 mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            </div>
+            <p className="text-sm text-stone-500 font-medium">No hero images uploaded yet</p>
+            <p className="text-xs text-stone-400 mt-1">The default background will be used on the homepage.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

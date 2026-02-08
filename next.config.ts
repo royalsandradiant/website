@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
     },
   },
 
+  serverExternalPackages: ['@prisma/client'],
+
   images: {
     remotePatterns: [
       {

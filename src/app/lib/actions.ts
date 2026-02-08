@@ -1570,7 +1570,7 @@ export async function createHeroImage(formData: FormData) {
     const fileName = `hero/${randomUUID()}-${imageFile.name}`;
     const blob = await put(fileName, imageFile, { access: 'public' });
     
-    await prisma.heroImage.create({
+    const image = await prisma.heroImage.create({
       data: {
         imageUrl: blob.url,
         altText,
@@ -1580,7 +1580,7 @@ export async function createHeroImage(formData: FormData) {
     
     revalidatePath('/admin/settings');
     revalidatePath('/');
-    return { success: true };
+    return { success: true, image };
   } catch (error) {
     console.error('Error creating hero image:', error);
     return { success: false, error: 'Failed to upload hero image.' };
