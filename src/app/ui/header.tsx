@@ -5,7 +5,6 @@ import { ShoppingBag, Menu, X, ChevronDown, ChevronRight } from "lucide-react";
 import { useCart } from "@/app/lib/cart-context";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import Image from "next/image";
 import type { CategoryWithChildren } from "@/app/lib/definitions";
 
 interface HeaderProps {
