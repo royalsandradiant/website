@@ -100,11 +100,13 @@ export function Hero({ images }: { images: HeroImage[] }) {
                     </div>
                  )}
                  
-                 <div className="absolute bottom-8 left-8 max-w-xs backdrop-blur-md bg-white/40 p-6 rounded-xl border border-white/20">
+                 {currentImage === "/hero.png" && (
+                  <div className="absolute bottom-8 left-8 max-w-xs backdrop-blur-md bg-white/40 p-6 rounded-xl border border-white/20">
                     <p className="font-display text-xl md:text-2xl text-foreground leading-tight italic">
                         &quot;Jewelry is the perfect way to express yourself without saying a word.&quot;
                     </p>
                  </div>
+                 )}
              </motion.div>
           </div>
 
