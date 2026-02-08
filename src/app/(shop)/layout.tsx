@@ -10,7 +10,7 @@ export default function ShopLayout({
     <div className="flex min-h-screen flex-col bg-background">
         <HeaderShell />
         <main className="flex-1 pt-24">{children}</main>
-        <footer className="border-t border-white/5 bg-background pt-16 pb-8">
+        <footer className="border-t border-white/5 bg-secondary/50 pt-16 pb-8">
             <div className="container mx-auto px-4">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12 text-left">
                     {/* Brand Section */}

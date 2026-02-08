@@ -17,7 +17,7 @@ export default async function HomePage() {
       <Hero images={heroImages} />
       
       {/* Curator's Note / Divider */}
-      <section className="container mx-auto px-8 py-24 text-center">
+      <section className="container mx-auto px-8 pb-20 text-center">
          <span className="mb-4 block mx-auto h-12 w-[1px] bg-primary/30"></span>
          <p className="font-display text-3xl italic text-foreground/80 md:text-4xl lg:text-5xl max-w-4xl mx-auto leading-tight">
            &quot;Jewelry is not meant to be hidden. It is meant to be lived in, loved, and passed down.&quot;
