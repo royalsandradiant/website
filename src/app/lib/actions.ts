@@ -379,7 +379,7 @@ export async function createProduct(_prevState: State, formData: FormData) {
     salePrice: isOnSaleValue && salePriceValue ? salePriceValue : null,
     salePercentage: isOnSaleValue && salePercentageValue ? salePercentageValue : null,
     isCombo: isComboValue,
-    sizeChartUrl: formData.get('sizeChartUrl'),
+    sizeChartUrl: formData.get('existingSizeChartUrl') as string || null,
   });
 
   if (!validatedFields.success) {
@@ -389,7 +389,21 @@ export async function createProduct(_prevState: State, formData: FormData) {
     };
   }
 
-  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage, isCombo, sizeChartUrl } = validatedFields.data;
+  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage, isCombo } = validatedFields.data;
+  let { sizeChartUrl } = validatedFields.data;
+  
+  // Handle size chart upload
+  const sizeChartFile = formData.get('sizeChart') as File | null;
+  if (sizeChartFile && sizeChartFile.size > 0) {
+    const fileName = `size-charts/${randomUUID()}-${sizeChartFile.name}`;
+    try {
+      const blob = await put(fileName, sizeChartFile, { access: 'public' });
+      sizeChartUrl = blob.url;
+    } catch (e) {
+      console.error("Size chart upload error", e);
+      return { message: 'Size chart upload failed.' };
+    }
+  }
   
   // Calculate sale price if percentage is provided
   let finalSalePrice = salePrice;
@@ -489,7 +503,7 @@ export async function updateProduct(id: string, _prevState: State, formData: For
     salePrice: isOnSaleValue && salePriceValue ? salePriceValue : null,
     salePercentage: isOnSaleValue && salePercentageValue ? salePercentageValue : null,
     isCombo: isComboValue,
-    sizeChartUrl: formData.get('sizeChartUrl'),
+    sizeChartUrl: formData.get('existingSizeChartUrl') as string || null,
   });
 
   if (!validatedFields.success) {
@@ -499,7 +513,21 @@ export async function updateProduct(id: string, _prevState: State, formData: For
     };
   }
 
-  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage, isCombo, sizeChartUrl } = validatedFields.data;
+  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage, isCombo } = validatedFields.data;
+  let { sizeChartUrl } = validatedFields.data;
+
+  // Handle size chart upload
+  const sizeChartFile = formData.get('sizeChart') as File | null;
+  if (sizeChartFile && sizeChartFile.size > 0) {
+    const fileName = `size-charts/${randomUUID()}-${sizeChartFile.name}`;
+    try {
+      const blob = await put(fileName, sizeChartFile, { access: 'public' });
+      sizeChartUrl = blob.url;
+    } catch (e) {
+      console.error("Size chart upload error", e);
+      return { message: 'Size chart upload failed.' };
+    }
+  }
   
   // Calculate sale price if percentage is provided
   let finalSalePrice = salePrice;
