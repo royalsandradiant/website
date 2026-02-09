@@ -5,11 +5,11 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { put } from '@vercel/blob';
-import { randomUUID } from 'crypto';
 import { Resend } from 'resend';
 import Stripe from 'stripe';
 
 import type { State, CategoryState } from './definitions';
+import { ImageUploadValidationError, prepareWebpUploadFromFile } from './image-upload';
 import { slugify, buildSlugPath, getBaseUrl } from './utils';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -43,6 +43,15 @@ async function revalidateCategoryPaths() {
   revalidatePath('/admin');
   revalidatePath('/admin/categories');
   revalidatePath('/products/category', 'layout');
+}
+
+async function uploadImageAsWebp(file: File, folder?: string): Promise<string> {
+  const { fileName, buffer, contentType } = await prepareWebpUploadFromFile(file, { folder });
+  const blob = await put(fileName, buffer, {
+    access: 'public',
+    contentType,
+  });
+  return blob.url;
 }
 
 export async function createCategory(_prevState: CategoryState, formData: FormData): Promise<CategoryState> {
@@ -108,13 +117,13 @@ export async function createCategory(_prevState: CategoryState, formData: FormDa
   let imageUrl: string | null = null;
   const imageFile = formData.get('image') as File | null;
   if (imageFile && imageFile.size > 0) {
-    const fileName = `categories/${randomUUID()}-${imageFile.name}`;
     try {
-      const blob = await put(fileName, imageFile, { access: 'public' });
-      imageUrl = blob.url;
+      imageUrl = await uploadImageAsWebp(imageFile, 'categories');
     } catch (e) {
       console.error("Upload error", e);
-      return { message: 'Image upload failed.' };
+      return {
+        message: e instanceof ImageUploadValidationError ? e.message : 'Image upload failed.',
+      };
     }
   }
 
@@ -221,16 +230,16 @@ export async function updateCategory(id: string, _prevState: CategoryState, form
   }
 
   // Handle image upload
-  let imageUrl: string | undefined = undefined;
+  let imageUrl: string | undefined;
   const imageFile = formData.get('image') as File | null;
   if (imageFile && imageFile.size > 0) {
-    const fileName = `categories/${randomUUID()}-${imageFile.name}`;
     try {
-      const blob = await put(fileName, imageFile, { access: 'public' });
-      imageUrl = blob.url;
+      imageUrl = await uploadImageAsWebp(imageFile, 'categories');
     } catch (e) {
       console.error("Upload error", e);
-      return { message: 'Image upload failed.' };
+      return {
+        message: e instanceof ImageUploadValidationError ? e.message : 'Image upload failed.',
+      };
     }
   }
 
@@ -397,13 +406,13 @@ export async function createProduct(_prevState: State, formData: FormData) {
   const sizeChartFile = formData.get('sizeChart') as File | null;
   let finalSizeChartUrl = sizeChartUrl;
   if (sizeChartFile && sizeChartFile.size > 0) {
-    const fileName = `size-charts/${randomUUID()}-${sizeChartFile.name}`;
     try {
-      const blob = await put(fileName, sizeChartFile, { access: 'public' });
-      finalSizeChartUrl = blob.url;
+      finalSizeChartUrl = await uploadImageAsWebp(sizeChartFile, 'size-charts');
     } catch (e) {
       console.error("Size chart upload error", e);
-      return { message: 'Size chart upload failed.' };
+      return {
+        message: e instanceof ImageUploadValidationError ? e.message : 'Size chart upload failed.',
+      };
     }
   }
   
@@ -426,20 +435,18 @@ export async function createProduct(_prevState: State, formData: FormData) {
   }
   
   const imageFiles = formData.getAll('images') as File[];
-  let images: string[] = [];
+  const images: string[] = [];
 
   if (imageFiles.length > 0 && imageFiles[0].size > 0) {
     for (const file of imageFiles) {
       if (file.size > 0) {
-        const fileName = `${randomUUID()}-${file.name}`;
         try {
-          const blob = await put(fileName, file, {
-            access: 'public',
-          });
-          images.push(blob.url);
+          images.push(await uploadImageAsWebp(file));
         } catch (e) {
           console.error("Upload error", e);
-          return { message: 'Image upload failed.' };
+          return {
+            message: e instanceof ImageUploadValidationError ? e.message : 'Image upload failed.',
+          };
         }
       }
     }
@@ -448,7 +455,7 @@ export async function createProduct(_prevState: State, formData: FormData) {
   }
 
   try {
-    const product = await prisma.product.create({
+    await prisma.product.create({
       data: {
         name,
         description,
@@ -524,13 +531,13 @@ export async function updateProduct(id: string, _prevState: State, formData: For
   const sizeChartFile = formData.get('sizeChart') as File | null;
   let finalSizeChartUrl = sizeChartUrl;
   if (sizeChartFile && sizeChartFile.size > 0) {
-    const fileName = `size-charts/${randomUUID()}-${sizeChartFile.name}`;
     try {
-      const blob = await put(fileName, sizeChartFile, { access: 'public' });
-      finalSizeChartUrl = blob.url;
+      finalSizeChartUrl = await uploadImageAsWebp(sizeChartFile, 'size-charts');
     } catch (e) {
       console.error("Size chart upload error", e);
-      return { message: 'Size chart upload failed.' };
+      return {
+        message: e instanceof ImageUploadValidationError ? e.message : 'Size chart upload failed.',
+      };
     }
   }
   
@@ -556,20 +563,18 @@ export async function updateProduct(id: string, _prevState: State, formData: For
   const existingImages = formData.getAll('existingImages') as string[];
   
   const imageFiles = formData.getAll('images') as File[];
-  let newImages: string[] = [];
+  const newImages: string[] = [];
 
   if (imageFiles.length > 0 && imageFiles[0].size > 0) {
     for (const file of imageFiles) {
       if (file.size > 0) {
-        const fileName = `${randomUUID()}-${file.name}`;
         try {
-          const blob = await put(fileName, file, {
-            access: 'public',
-          });
-          newImages.push(blob.url);
+          newImages.push(await uploadImageAsWebp(file));
         } catch (e) {
           console.error("Upload error", e);
-          return { message: 'Image upload failed.' };
+          return {
+            message: e instanceof ImageUploadValidationError ? e.message : 'Image upload failed.',
+          };
         }
       }
     }
@@ -729,14 +734,11 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
 
       // Upload image to Vercel Blob
       try {
-        const uniqueFileName = `${randomUUID()}-${imageFile.name}`;
-        const blob = await put(uniqueFileName, imageFile, {
-          access: 'public',
-        });
-        productImages.push(blob.url);
+        productImages.push(await uploadImageAsWebp(imageFile));
       } catch (e) {
         console.error('Upload error', e);
-        productResult.error = 'Image upload failed';
+        productResult.error =
+          e instanceof ImageUploadValidationError ? e.message : 'Image upload failed';
         uploadError = true;
         break;
       }
@@ -1663,12 +1665,11 @@ export async function createHeroImage(formData: FormData) {
       const imageFile = imageFiles[i];
       if (imageFile.size === 0) continue;
 
-      const fileName = `hero/${randomUUID()}-${imageFile.name}`;
-      const blob = await put(fileName, imageFile, { access: 'public' });
+      const imageUrl = await uploadImageAsWebp(imageFile, 'hero');
       
       const image = await prisma.heroImage.create({
         data: {
-          imageUrl: blob.url,
+          imageUrl,
           altText,
           sortOrder: sortOrderBase + i,
         },
@@ -1721,11 +1722,13 @@ export async function uploadVariantImage(formData: FormData) {
   if (!file || file.size === 0) return { success: false, error: 'No file' };
   
   try {
-    const fileName = `variants/${randomUUID()}-${file.name}`;
-    const blob = await put(fileName, file, { access: 'public' });
-    return { success: true, url: blob.url };
+    const url = await uploadImageAsWebp(file, 'variants');
+    return { success: true, url };
   } catch (e) {
-    return { success: false, error: 'Upload failed' };
+    return {
+      success: false,
+      error: e instanceof ImageUploadValidationError ? e.message : 'Upload failed',
+    };
   }
 }
 

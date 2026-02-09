@@ -6,17 +6,17 @@ const nextConfig: NextConfig = {
 
   experimental: {
     serverActions: {
-      bodySizeLimit: '10mb',
+      bodySizeLimit: "10mb",
     },
   },
 
-  serverExternalPackages: ['@prisma/client'],
+  serverExternalPackages: ["@prisma/client", "sharp"],
 
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: '*.public.blob.vercel-storage.com',
+        protocol: "https",
+        hostname: "*.public.blob.vercel-storage.com",
       },
     ],
   },

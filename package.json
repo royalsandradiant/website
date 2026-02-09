@@ -11,7 +11,8 @@
     "postinstall": "prisma generate",
     "db:seed": "bun run prisma/seed.ts",
     "db:user": "bun run scripts/manage-user.ts && bun run db:seed",
-    "db:user:list": "bun run scripts/manage-user.ts list"
+    "db:user:list": "bun run scripts/manage-user.ts list",
+    "images:migrate:webp": "bun run scripts/migrate-images-to-webp.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -38,6 +39,7 @@
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "resend": "^6.7.0",
+    "sharp": "^0.34.5",
     "stripe": "^20.1.2",
     "tailwind-merge": "^3.4.0",
     "zod": "^4.1.12"
