@@ -50,7 +50,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       {/* Breadcrumb */}
       <div className="container mx-auto px-4 md:px-8 mb-8">
         <nav className="text-sm">
-          <ol className="flex items-center gap-2 text-foreground/50">
+          <ol className="flex flex-wrap items-center gap-2 text-foreground/50">
             <li>
               <Link href="/" className="hover:text-primary transition-colors">
                 Home

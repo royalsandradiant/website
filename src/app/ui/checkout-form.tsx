@@ -5,6 +5,7 @@ import { createStripeCheckoutSession, validateCoupon } from '@/app/lib/actions';
 import { useState, useMemo } from 'react';
 import { Loader2, CreditCard, ShieldCheck, Tag, X, MapPin, Truck } from 'lucide-react';
 import type { ShippingRule } from '@/app/lib/definitions';
+import { inferShippingCategoryFromText } from '@/app/lib/shipping';
 
 export default function CheckoutForm({ 
   shippingRules,
@@ -50,16 +51,42 @@ export default function CheckoutForm({
 
   const subtotalAfterDiscount = Math.max(0, total - discountAmount);
 
+  const cartShippingContext = useMemo(() => {
+    const categories = items.map((item) =>
+      item.shippingCategory ?? inferShippingCategoryFromText(item.name) ?? 'jewelry',
+    );
+    const hasClothes = categories.includes('clothes');
+    const hasJewelry = categories.includes('jewelry');
+    return {
+      hasClothes,
+      hasJewelry,
+      effectiveCategory: hasClothes ? 'clothes' : 'jewelry',
+    };
+  }, [items]);
+
+  const activeShippingRules = useMemo(() => {
+    const matchedRules = shippingRules.filter(
+      (rule) => rule.category === cartShippingContext.effectiveCategory,
+    );
+    if (matchedRules.length > 0) {
+      return matchedRules;
+    }
+
+    // Fall back to jewelry rules, then any rule, for legacy data safety.
+    const jewelryRules = shippingRules.filter((rule) => rule.category === 'jewelry');
+    return jewelryRules.length > 0 ? jewelryRules : shippingRules;
+  }, [shippingRules, cartShippingContext.effectiveCategory]);
+
   // Calculate Shipping (Feature 4 & 5)
   const shippingCost = useMemo(() => {
     if (isPickup) return 0;
-    if (shippingRules.length === 0) return 0;
-    const rule = shippingRules.find(r => 
+    if (activeShippingRules.length === 0) return 0;
+    const rule = activeShippingRules.find((r) =>
       subtotalAfterDiscount >= Number(r.minAmount) && 
       (r.maxAmount === null || subtotalAfterDiscount <= Number(r.maxAmount))
     );
     return rule ? Number(rule.price) : 0;
-  }, [subtotalAfterDiscount, shippingRules, isPickup]);
+  }, [subtotalAfterDiscount, activeShippingRules, isPickup]);
 
   if (!items || items.length === 0) {
     return (
@@ -272,7 +299,7 @@ export default function CheckoutForm({
                   autoComplete="address-line2"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="city" className="block text-sm font-medium text-foreground/70 mb-2">
                     City *
@@ -424,6 +451,7 @@ export default function CheckoutForm({
                   type="button"
                   onClick={handleRemoveCoupon}
                   className="text-primary hover:text-primary/70 transition-colors"
+                  aria-label="Remove applied coupon"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -440,11 +468,20 @@ export default function CheckoutForm({
           )}
 
           <div className="flex justify-between text-sm mb-4 tabular-nums">
-            <span className="text-foreground/70">Shipping</span>
+            <span className="text-foreground/70">
+              {isPickup
+                ? 'Store Pickup'
+                : `Shipping`}
+            </span>
             <span className={shippingCost === 0 ? "text-green-600 font-bold" : "text-foreground"}>
               {shippingCost === 0 ? "FREE" : `$${shippingCost.toFixed(2)}`}
             </span>
           </div>
+          {!isPickup && cartShippingContext.hasClothes && cartShippingContext.hasJewelry && (
+            <p className="mb-4 text-xs text-foreground/50">
+              Mixed cart detected: clothes shipping rules are prioritized.
+            </p>
+          )}
 
           {/* Total */}
           <div className="flex justify-between text-lg font-semibold mb-6 tabular-nums">

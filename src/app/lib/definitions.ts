@@ -83,6 +83,9 @@ export type Coupon = {
   updatedAt: Date;
 };
 
+export type HeroViewport = 'desktop' | 'mobile';
+export type ShippingCategory = 'clothes' | 'jewelry';
+
 // Form state types
 export type State = {
   errors?: {
@@ -102,6 +105,7 @@ export type HeroImage = {
   id: string;
   imageUrl: string;
   altText: string | null;
+  viewport: HeroViewport;
   sortOrder: number;
   isVisible: boolean;
   createdAt: Date;
@@ -110,6 +114,7 @@ export type HeroImage = {
 
 export type ShippingRule = {
   id: string;
+  category: ShippingCategory;
   minAmount: number;
   maxAmount: number | null;
   price: number;

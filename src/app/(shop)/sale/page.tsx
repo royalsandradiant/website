@@ -53,7 +53,7 @@ export default async function SalePage({
       </section>
 
       {/* Decorative Divider */}
-      <div className="container mx-auto px-8 mb-16">
+      <div className="container mx-auto px-4 md:px-8 mb-16">
         <div className="flex items-center justify-center gap-4">
           <span className="h-px w-16 bg-primary/30"></span>
           <span className="text-primary text-2xl">✦</span>

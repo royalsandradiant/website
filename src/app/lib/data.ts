@@ -1,7 +1,14 @@
 'use server';
 
 import { prisma } from './prisma';
-import { Product, Category, ProductWithCategory, LeafCategory, ShippingRule } from './definitions';
+import {
+  Product,
+  Category,
+  ProductWithCategory,
+  LeafCategory,
+  ShippingRule,
+  HeroImage,
+} from './definitions';
 import { buildCategoryTree, flattenCategoryTree, getLeafCategories } from './category';
 
 function transformProduct(product: any | null): Product | null {
@@ -463,10 +470,14 @@ export async function fetchCouponByCode(code: string) {
 
 export async function fetchHeroImages() {
   try {
-    return await prisma.heroImage.findMany({
+    const heroImages = await prisma.heroImage.findMany({
       where: { isVisible: true },
       orderBy: { sortOrder: 'asc' },
     });
+    return heroImages.map((image) => ({
+      ...image,
+      viewport: image.viewport === 'mobile' ? 'mobile' : 'desktop',
+    })) as HeroImage[];
   } catch (error) {
     console.error('Database Error:', error);
     return [];
@@ -475,9 +486,13 @@ export async function fetchHeroImages() {
 
 export async function fetchAllHeroImages() {
   try {
-    return await prisma.heroImage.findMany({
+    const heroImages = await prisma.heroImage.findMany({
       orderBy: { sortOrder: 'asc' },
     });
+    return heroImages.map((image) => ({
+      ...image,
+      viewport: image.viewport === 'mobile' ? 'mobile' : 'desktop',
+    })) as HeroImage[];
   } catch (error) {
     console.error('Database Error:', error);
     return [];
@@ -487,10 +502,11 @@ export async function fetchAllHeroImages() {
 export async function fetchShippingRules() {
   try {
     const rules = await prisma.shippingRule.findMany({
-      orderBy: { minAmount: 'asc' },
+      orderBy: [{ category: 'asc' }, { minAmount: 'asc' }],
     });
     return rules.map(r => ({
       ...r,
+      category: r.category === 'clothes' ? 'clothes' : 'jewelry',
       minAmount: Number(r.minAmount),
       maxAmount: r.maxAmount ? Number(r.maxAmount) : null,
       price: Number(r.price),

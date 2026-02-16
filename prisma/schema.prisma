@@ -168,10 +168,13 @@ model HeroImage {
   id        String   @id @default(cuid())
   imageUrl  String
   altText   String?
+  viewport  String   @default("desktop") // desktop | mobile
   sortOrder Int      @default(0)
   isVisible Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([viewport, sortOrder])
 }
 
 model ProductVariant {
@@ -191,9 +194,12 @@ model ProductVariant {
 
 model ShippingRule {
   id        String   @id @default(cuid())
+  category  String   @default("jewelry") // clothes | jewelry
   minAmount Decimal
   maxAmount Decimal? // null means "and above"
   price     Decimal
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([category, minAmount])
 }

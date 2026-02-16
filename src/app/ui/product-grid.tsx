@@ -7,6 +7,7 @@ import { useCart } from '@/app/lib/cart-context';
 import { ShoppingBag, Check } from 'lucide-react';
 import { useState } from 'react';
 import type { Product, ProductWithCategory } from '@/app/lib/definitions';
+import { inferShippingCategoryFromProduct } from '@/app/lib/shipping';
 
 export function ProductGrid({ products }: { products: (Product | ProductWithCategory | null)[] }) {
   const validProducts = products.filter((p): p is Product | ProductWithCategory => p !== null);
@@ -46,12 +47,15 @@ export function ProductGrid({ products }: { products: (Product | ProductWithCate
     
     const effectivePrice = product.isOnSale && product.salePrice ? product.salePrice : product.price;
 
+    const shippingCategory = inferShippingCategoryFromProduct(product);
+
     addItem({
       id: product.id,
       name: product.name,
       price: effectivePrice,
       quantity: 1,
       imagePath: product.images && product.images.length > 0 ? product.images[0] : '',
+      shippingCategory,
     });
 
     setAddingId(product.id);

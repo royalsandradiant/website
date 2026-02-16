@@ -7,8 +7,9 @@ import { redirect } from 'next/navigation';
 import { put } from '@vercel/blob';
 import { Resend } from 'resend';
 import Stripe from 'stripe';
+import type { Prisma } from '@prisma/client';
 
-import type { State, CategoryState } from './definitions';
+import type { State, CategoryState, ShippingCategory, HeroViewport } from './definitions';
 import { ImageUploadValidationError, prepareWebpUploadFromFile } from './image-upload';
 import { slugify, buildSlugPath, getBaseUrl } from './utils';
 
@@ -16,6 +17,14 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2025-12-15.clover',
 });
+
+function normalizeShippingCategoryInput(category: string | null | undefined): ShippingCategory {
+  return category === 'clothes' ? 'clothes' : 'jewelry';
+}
+
+function normalizeHeroViewportInput(viewport: string | null | undefined): HeroViewport {
+  return viewport === 'mobile' ? 'mobile' : 'desktop';
+}
 
 // ===================
 // Category Schemas
@@ -1617,6 +1626,7 @@ export async function updateStoreSettings(data: {
       },
     });
     revalidatePath('/admin/settings');
+    revalidatePath('/checkout');
     revalidatePath('/');
     return { success: true };
   } catch (error) {
@@ -1625,13 +1635,44 @@ export async function updateStoreSettings(data: {
   }
 }
 
-export async function createShippingRule(minAmount: number, price: number, maxAmount?: number | null) {
+export async function createShippingRule(
+  category: ShippingCategory,
+  minAmount: number,
+  price: number,
+  maxAmount?: number | null,
+) {
   try {
-    await prisma.shippingRule.create({
-      data: { minAmount, price, maxAmount: maxAmount ?? null },
+    if (Number.isNaN(minAmount) || Number.isNaN(price)) {
+      return { success: false, error: 'Please enter valid numeric values.' };
+    }
+    if (maxAmount !== null && maxAmount !== undefined && Number.isNaN(maxAmount)) {
+      return { success: false, error: 'Please enter a valid maximum order amount.' };
+    }
+    if (maxAmount !== null && maxAmount !== undefined && maxAmount < minAmount) {
+      return { success: false, error: 'Maximum order amount must be greater than or equal to minimum amount.' };
+    }
+
+    const normalizedCategory = normalizeShippingCategoryInput(category);
+
+    const rule = await prisma.shippingRule.create({
+      data: {
+        category: normalizedCategory,
+        minAmount,
+        price,
+        maxAmount: maxAmount ?? null,
+      } as Prisma.ShippingRuleCreateInput,
     });
     revalidatePath('/admin/settings');
-    return { success: true };
+    return {
+      success: true,
+      rule: {
+        ...rule,
+        category: normalizedCategory,
+        minAmount: Number(rule.minAmount),
+        maxAmount: rule.maxAmount ? Number(rule.maxAmount) : null,
+        price: Number(rule.price),
+      },
+    };
   } catch (error) {
     console.error('Database Error:', error);
     return { success: false, error: 'Failed to create shipping rule.' };
@@ -1642,6 +1683,7 @@ export async function deleteShippingRule(id: string) {
   try {
     await prisma.shippingRule.delete({ where: { id } });
     revalidatePath('/admin/settings');
+    revalidatePath('/checkout');
     return { success: true };
   } catch (error) {
     console.error('Database Error:', error);
@@ -1652,6 +1694,7 @@ export async function deleteShippingRule(id: string) {
 export async function createHeroImage(formData: FormData) {
   const imageFiles = formData.getAll('image') as File[];
   const altText = formData.get('altText') as string;
+  const viewport = normalizeHeroViewportInput(formData.get('viewport') as string | null);
   const sortOrderBase = parseInt(formData.get('sortOrder') as string || '0');
 
   if (imageFiles.length === 0 || (imageFiles.length === 1 && imageFiles[0].size === 0)) {
@@ -1671,8 +1714,9 @@ export async function createHeroImage(formData: FormData) {
         data: {
           imageUrl,
           altText,
+          viewport,
           sortOrder: sortOrderBase + i,
-        },
+        } as Prisma.HeroImageCreateInput,
       });
       createdImages.push(image);
     }
@@ -1695,6 +1739,28 @@ export async function deleteHeroImage(id: string) {
   } catch (error) {
     console.error('Database Error:', error);
     return { success: false, error: 'Failed to delete hero image.' };
+  }
+}
+
+export async function updateHeroImageViewport(id: string, viewport: HeroViewport) {
+  try {
+    const normalizedViewport = normalizeHeroViewportInput(viewport);
+    const image = await prisma.heroImage.update({
+      where: { id },
+      data: { viewport: normalizedViewport } as Prisma.HeroImageUpdateInput,
+    });
+    revalidatePath('/admin/settings');
+    revalidatePath('/');
+    return {
+      success: true,
+      image: {
+        ...image,
+        viewport: normalizedViewport,
+      },
+    };
+  } catch (error) {
+    console.error('Database Error:', error);
+    return { success: false, error: 'Failed to update hero image viewport.' };
   }
 }
 

@@ -4,6 +4,7 @@ import { useCart } from "@/app/lib/cart-context";
 import { useState } from "react";
 import { ShoppingBag, Check } from "lucide-react";
 import { Product } from "@/app/lib/definitions";
+import { inferShippingCategoryFromProduct } from "@/app/lib/shipping";
 
 export default function AddToCart({ product, onVariantChange }: { product: Product, onVariantChange?: (variant: any) => void }) {
   const { addItem } = useCart();
@@ -52,12 +53,15 @@ export default function AddToCart({ product, onVariantChange }: { product: Produ
       return;
     }
 
+    const shippingCategory = inferShippingCategoryFromProduct(product);
+
     addItem({
       id: product.id,
       name: selectedVariant ? `${product.name} - ${selectedVariant.colorName}` : product.name,
       price: effectivePrice,
       quantity: quantity,
       imagePath: selectedVariant?.imageUrl || (product.images && product.images.length > 0 ? product.images[0] : ''),
+      shippingCategory,
       color: selectedVariant?.colorName,
       size: selectedSize || undefined,
     });

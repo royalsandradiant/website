@@ -44,16 +44,16 @@ export default function Header({ categories }: HeaderProps) {
       >
         {/* Top Bar with Logo */}
         <div className="container mx-auto px-4 md:px-8">
-          <div className="flex items-center justify-between py-4 relative">
+          <div className="relative flex items-center justify-between py-3 sm:py-4">
             {/* Logo */}
             <Link
               href="/"
               className="group relative flex flex-col focus-visible:outline-none"
             >
-              <h1 className="font-display text-xl sm:text-2xl md:text-5xl tracking-tight text-foreground leading-none">
+              <h1 className="font-display text-xl leading-none tracking-tight text-foreground sm:text-2xl md:text-4xl lg:text-5xl">
                 Royals and Radiant
               </h1>
-              <span className="text-[15px] sm:text-m text-foreground/80 font-bold tracking-wide mt-0.5">
+              <span className="mt-0.5 text-xs font-bold text-foreground/80 sm:text-sm md:text-base">
                 by Upasana and Foram
               </span>
               <span className="absolute -bottom-1 left-0 w-0 h-px bg-primary transition-all duration-300 group-hover:w-full group-focus-visible:w-full"></span>

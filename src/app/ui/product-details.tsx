@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import ImageGallery from '@/app/ui/image-gallery';
 import AddToCart from '@/app/ui/add-to-cart';
-import type { Product, ProductWithCategory } from '@/app/lib/definitions';
 import { Ruler, X } from 'lucide-react';
 
 interface ProductDetailsProps {
@@ -60,12 +59,13 @@ export default function ProductDetails({ product, categoryBreadcrumb, settings }
           </div>
         )}
         
-        <h1 className="font-display text-4xl md:text-5xl text-foreground mb-4">
+        <p className="font-sans text-4xl md:text-5xl text-foreground mb-4">
           {product.name}
-        </h1>
+        </p>
 
         {product.sizeChartUrl && (
           <button 
+            type="button"
             onClick={() => setShowSizeChart(true)}
             className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors mb-6 group"
           >
@@ -75,8 +75,8 @@ export default function ProductDetails({ product, categoryBreadcrumb, settings }
         )}
         
         {/* Delivery Info */}
-        <div className="flex items-center gap-2 mb-6 text-sm text-foreground/60 bg-blue-50/50 p-3 rounded-lg border border-blue-100 max-w-fit">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500"><rect x="1" y="3" width="15" height="13" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" /></svg>
+        <div className="mb-6 flex w-full items-start gap-2 rounded-lg border border-blue-100 bg-blue-50/50 p-3 text-sm text-foreground/60 sm:w-auto sm:items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500" aria-hidden="true"><rect x="1" y="3" width="15" height="13" /><polygon points="16 8 20 8 23 11 23 16 16 16 16 8" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" /></svg>
           <span>Estimated delivery: <strong>{settings.estimatedDeliveryMin} to {settings.estimatedDeliveryMax} business days</strong></span>
         </div>
         
@@ -110,17 +110,17 @@ export default function ProductDetails({ product, categoryBreadcrumb, settings }
 
         {/* Product Meta Info */}
         <div className="mb-8 p-6 bg-secondary/30 rounded-xl space-y-4 border border-border/40">
-          <div className="flex justify-between text-sm items-center pb-3 border-b border-border/40">
+          <div className="flex flex-col gap-1 border-b border-border/40 pb-3 text-sm sm:flex-row sm:items-center sm:justify-between">
             <span className="text-foreground/60 uppercase tracking-tighter font-bold">Availability</span>
             <span className={`font-bold ${product.stock > 0 ? 'text-green-600' : 'text-red-500'}`}>
               {product.stock > 0 ? `In Stock (${product.stock} available)` : 'Out of Stock'}
             </span>
           </div>
-          <div className="flex justify-between text-sm items-center pb-3 border-b border-border/40">
+          <div className="flex flex-col gap-1 border-b border-border/40 pb-3 text-sm sm:flex-row sm:items-center sm:justify-between">
             <span className="text-foreground/60 uppercase tracking-tighter font-bold">Returns</span>
-            <span className="font-bold text-red-500/80">All sales final. No returns or exchanges.</span>
+            <span className="font-bold text-red-500/80 sm:text-right">All sales final. No returns or exchanges.</span>
           </div>
-          <div className="flex justify-between text-sm items-center">
+          <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
             <span className="text-foreground/60 uppercase tracking-tighter font-bold">Standard Shipping</span>
             <span className="text-foreground font-medium italic">Calculated at checkout</span>
           </div>
@@ -134,13 +134,15 @@ export default function ProductDetails({ product, categoryBreadcrumb, settings }
 
       {/* Size Chart Modal */}
       {showSizeChart && product.sizeChartUrl && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="relative bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="relative max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl animate-in zoom-in-95 duration-300">
             <div className="flex items-center justify-between p-6 border-b">
               <h3 className="font-display text-2xl">Size Guide</h3>
               <button 
+                type="button"
                 onClick={() => setShowSizeChart(false)}
                 className="p-2 hover:bg-secondary/50 rounded-full transition-colors"
+                aria-label="Close size guide"
               >
                 <X className="h-6 w-6" />
               </button>
@@ -158,9 +160,11 @@ export default function ProductDetails({ product, categoryBreadcrumb, settings }
               </p>
             </div>
           </div>
-          <div 
+          <button
+            type="button"
             className="absolute inset-0 -z-10" 
             onClick={() => setShowSizeChart(false)}
+            aria-label="Close size guide overlay"
           />
         </div>
       )}

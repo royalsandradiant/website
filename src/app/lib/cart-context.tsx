@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import type { ShippingCategory } from '@/app/lib/definitions';
 
 export type CartItem = {
   id: string;
@@ -8,6 +9,7 @@ export type CartItem = {
   price: number;
   quantity: number;
   imagePath: string;
+  shippingCategory?: ShippingCategory;
   comboId?: string;
   originalProductId?: string;
   color?: string;
@@ -32,7 +34,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const savedCart = localStorage.getItem('cart');
     if (savedCart) {
-      setItems(JSON.parse(savedCart));
+      try {
+        const parsed = JSON.parse(savedCart) as CartItem[];
+        const hydratedItems = parsed.map((item) => ({
+          ...item,
+          shippingCategory:
+            item.shippingCategory === 'clothes' || item.shippingCategory === 'jewelry'
+              ? item.shippingCategory
+              : undefined,
+        }));
+        setItems(hydratedItems);
+      } catch {
+        setItems([]);
+      }
     }
   }, []);
 

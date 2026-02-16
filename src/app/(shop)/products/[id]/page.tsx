@@ -26,7 +26,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       <div className="container mx-auto px-4 md:px-8">
         {/* Breadcrumb */}
         <nav className="mb-8 text-sm">
-          <ol className="flex items-center gap-2 text-foreground/50">
+          <ol className="flex flex-wrap items-center gap-2 text-foreground/50">
             <li><Link href="/" className="hover:text-primary transition-colors">Home</Link></li>
             {categoryBreadcrumb.map((cat) => (
               <li key={cat.id} className="flex items-center gap-2">

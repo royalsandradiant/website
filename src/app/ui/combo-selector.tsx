@@ -6,6 +6,7 @@ import { useCart } from '@/app/lib/cart-context';
 import { Check, Plus, ShoppingBag, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { Product } from '@/app/lib/definitions';
+import { inferShippingCategoryFromProduct } from '@/app/lib/shipping';
 
 interface ComboSelectorProps {
   products: Product[];
@@ -47,12 +48,15 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
     
     const effectivePrice = product.isOnSale && product.salePrice ? product.salePrice : product.price;
 
+    const shippingCategory = inferShippingCategoryFromProduct(product);
+
     addItem({
       id: product.id,
       name: product.name,
       price: effectivePrice,
       quantity: 1,
       imagePath: product.images && product.images.length > 0 ? product.images[0] : '',
+      shippingCategory,
     });
 
     setAddingId(product.id);
@@ -70,12 +74,14 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
 
     // Add each product to cart with combo metadata
     selectedProducts.forEach((product, index) => {
+      const shippingCategory = inferShippingCategoryFromProduct(product);
       addItem({
         id: `${product.id}-${comboId}`,
         name: `${product.name} (Combo ${index + 1}/${selectedProducts.length})`,
         price: pricePerItem,
         quantity: 1,
         imagePath: product.images && product.images.length > 0 ? product.images[0] : '',
+        shippingCategory,
         comboId,
         originalProductId: product.id,
       });
@@ -213,23 +219,21 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
               transition={{ duration: 0.3 }}
             >
               <div
-                role="button"
-                tabIndex={0}
-                onClick={() => !isOutOfStock && !(isDisabled && !isSelected) && toggleProduct(product)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    if (!isOutOfStock && !(isDisabled && !isSelected)) toggleProduct(product);
-                  }
-                }}
-                className={`group relative w-full text-left rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                className={`group relative w-full text-left rounded-xl overflow-hidden border-2 transition-all ${
                   isSelected
                     ? 'border-primary ring-2 ring-primary/20 scale-[1.02]'
                     : isDisabled || isOutOfStock
-                    ? 'border-border opacity-50 cursor-not-allowed'
+                    ? 'border-border opacity-50'
                     : 'border-border hover:border-primary/50 hover:shadow-md'
                 }`}
               >
+                <button
+                  type="button"
+                  onClick={() => !isOutOfStock && !(isDisabled && !isSelected) && toggleProduct(product)}
+                  disabled={isOutOfStock || (isDisabled && !isSelected)}
+                  className="absolute inset-0 z-10"
+                  aria-label={isSelected ? `Remove ${product.name} from combo` : `Add ${product.name} to combo`}
+                />
                 {/* Image */}
                 <div className="relative aspect-square bg-secondary">
                   {product.images && product.images.length > 0 ? (
@@ -253,7 +257,7 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
                         exit={{ scale: 0 }}
-                        className="absolute top-2 right-2 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-lg z-10"
+                        className="absolute top-2 right-2 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg"
                       >
                         <Check className="w-5 h-5" />
                       </motion.div>
@@ -261,23 +265,15 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
                   </AnimatePresence>
 
                   {/* Quick Add Overlay */}
-                  <div className="absolute bottom-0 left-0 w-full translate-y-0 lg:translate-y-full bg-white/90 py-2 px-3 backdrop-blur-sm transition-transform duration-300 lg:group-hover:translate-y-0 flex items-center justify-between gap-2 z-10">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (!isOutOfStock && !(isDisabled && !isSelected)) toggleProduct(product);
-                      }}
-                      className="font-sans text-[9px] font-bold tracking-widest text-foreground uppercase truncate hover:text-primary transition-colors"
-                    >
-                      Add to Combo
-                    </button>
+                  <div className="pointer-events-none absolute bottom-0 left-0 z-20 flex w-full translate-y-0 items-center justify-between gap-2 bg-white/90 px-3 py-2 backdrop-blur-sm transition-transform duration-300 lg:translate-y-full lg:group-hover:translate-y-0">
+                    <span className="font-sans text-[9px] font-bold tracking-widest text-foreground uppercase truncate">
+                      {isSelected ? 'Selected for Combo' : 'Tap to Add Combo'}
+                    </span>
                     <button
                       type="button"
                       onClick={(e) => handleAddToCart(e, product)}
                       disabled={isOutOfStock || isAdding}
-                      className={`flex h-8 w-8 items-center justify-center rounded-full transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 outline-none ${
+                      className={`pointer-events-auto relative z-30 flex h-8 w-8 items-center justify-center rounded-full transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 outline-none ${
                         isAdding 
                           ? 'bg-green-600 text-white' 
                           : isOutOfStock 
@@ -293,7 +289,7 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
 
                   {/* Out of Stock Badge */}
                   {isOutOfStock && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
+                    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/50">
                       <span className="px-3 py-1 bg-white text-foreground text-sm font-medium rounded-full">
                         Out of Stock
                       </span>

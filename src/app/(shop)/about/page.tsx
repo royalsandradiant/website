@@ -1,7 +1,6 @@
 'use client';
 
 import { motion } from 'motion/react';
-import Image from 'next/image';
 
 export default function AboutPage() {
   return (
@@ -17,7 +16,7 @@ export default function AboutPage() {
           <span className="text-sm font-medium tracking-widest text-primary uppercase mb-4 block">
             Our Story
           </span>
-          <h1 className="font-display text-4xl sm:text-5xl md:text-7xl text-foreground mb-6">
+          <h1 className="font-display text-4xl sm:text-5xl md:text-7xl text-foreground mb-6 text-balance">
             About Royals and Radiant
           </h1>
           <p className="text-lg text-foreground/70 leading-relaxed">
@@ -64,13 +63,13 @@ export default function AboutPage() {
               </p>
             </div>
 
-            <div className="flex justify-center gap-12 pt-8 border-t border-border">
+            <div className="flex flex-wrap justify-center gap-8 border-t border-border pt-8">
               <div className="text-center">
-                <span className="font-display text-5xl text-primary block mb-1">500+</span>
+                <span className="font-display text-4xl md:text-5xl text-primary block mb-1">500+</span>
                 <p className="text-sm text-foreground/50 uppercase tracking-widest">Unique Designs</p>
               </div>
               <div className="text-center">
-                <span className="font-display text-5xl text-primary block mb-1">1000+</span>
+                <span className="font-display text-4xl md:text-5xl text-primary block mb-1">1000+</span>
                 <p className="text-sm text-foreground/50 uppercase tracking-widest">Happy Customers</p>
               </div>
             </div>
@@ -140,7 +139,7 @@ export default function AboutPage() {
           transition={{ duration: 0.8 }}
           className="text-center max-w-3xl mx-auto"
         >
-          <span className="mb-4 block mx-auto h-12 w-[1px] bg-primary/30"></span>
+          <span className="mb-4 block mx-auto h-12 w-px bg-primary/30"></span>
           <p className="font-display text-3xl md:text-4xl italic text-foreground/80 leading-tight">
             &quot;Jewelry has the power to be this one little thing that can make you feel unique.&quot;
           </p>

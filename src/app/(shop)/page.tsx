@@ -17,12 +17,12 @@ export default async function HomePage() {
       <Hero images={heroImages} />
       
       {/* Curator's Note / Divider */}
-      <section className="container mx-auto px-8 pb-20 text-center">
-         <span className="mb-4 block mx-auto h-12 w-[1px] bg-primary/30"></span>
+      <section className="container mx-auto px-4 pb-20 text-center md:px-8">
+         <span className="mb-4 block mx-auto h-12 w-px bg-primary/30"></span>
          <p className="font-display text-3xl italic text-foreground/80 md:text-4xl lg:text-5xl max-w-4xl mx-auto leading-tight">
            &quot;Jewelry is not meant to be hidden. It is meant to be lived in, loved, and passed down.&quot;
          </p>
-         <span className="mt-4 block mx-auto h-12 w-[1px] bg-primary/30"></span>
+         <span className="mt-4 block mx-auto h-12 w-px bg-primary/30"></span>
       </section>
 
       <section id="products" className="container mx-auto px-4 md:px-8">
@@ -61,14 +61,14 @@ export default async function HomePage() {
             </p>
           </div>
           
-          <div className="flex flex-wrap justify-center gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {categoryTree.map((category) => (
               <Link
                 key={category.id}
                 href={`/products/category/${category.slugPath}`}
-                className="group p-6 bg-secondary/80 rounded-lg text-center hover:bg-secondary transition-colors border border-border/50 min-w-[200px] flex-1 sm:flex-none sm:w-[calc(50%-1rem)] lg:w-[calc(25%-1rem)]"
+                className="group rounded-lg border border-border/50 bg-secondary/80 p-6 text-center transition-colors hover:bg-secondary"
               >
-                <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-primary/20 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
+                <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-primary/20 transition-colors group-hover:bg-primary/30">
                   <span className="text-primary text-lg">✦</span>
                 </div>
                 <span className="font-bold text-lg text-foreground group-hover:text-primary transition-colors tracking-wide">
