@@ -25,7 +25,7 @@ export default function ShopLayout({
 
                     {/* Quick Links */}
                     <div>
-                        <h4 className="font-sans text-xs font-bold uppercase tracking-widest text-primary mb-6">Quick Links</h4>
+                        <p className="font-sans text-xs font-bold uppercase tracking-widest text-primary mb-6">Quick Links</p>
                         <ul className="space-y-4">
                             <li><Link href="/products/category/all" className="text-sm text-foreground/60 hover:text-primary transition-colors">Shop All</Link></li>
                             <li><Link href="/sale" className="text-sm text-foreground/60 hover:text-primary transition-colors">Sale</Link></li>
@@ -36,24 +36,24 @@ export default function ShopLayout({
 
                     {/* Customer Care */}
                     <div>
-                        <h4 className="font-sans text-xs font-bold uppercase tracking-widest text-primary mb-6">Customer Care</h4>
+                        <p className="font-sans text-xs font-bold uppercase tracking-widest text-primary mb-6">Customer Care</p>
                         <ul className="space-y-4">
-                            <li><Link href="/contact" className="text-sm text-foreground/60 hover:text-primary transition-colors">Contact Us</Link></li>
-                            {/* <li><Link href="/shipping" className="text-sm text-foreground/60 hover:text-primary transition-colors">Shipping Info</Link></li> */}
-                            <li className="text-sm text-foreground/40 italic">All Sales Final</li>
+                            <li><Link href="/contact" className="font-sans text-sm text-foreground/60 hover:text-primary transition-colors">Contact Us</Link></li>
+                            <li><Link href="/shipping" className="font-sans text-sm text-foreground/60 hover:text-primary transition-colors">Shipping Info</Link></li>
+                            <li className="font-sans text-sm text-foreground/40 italic">All Sales Final</li>
                         </ul>
                     </div>
 
                     {/* Newsletter/Social */}
                     <div>
-                        <h4 className="font-sans text-xs font-bold uppercase tracking-widest text-primary mb-6">Connect</h4>
-                        <p className="text-sm text-foreground/60 mb-4">Follow us for updates and new collections.</p>
+                        <p className="font-sans text-xs font-bold uppercase tracking-widest text-primary mb-6">Connect</p>
+                        <p className="font-sans text-sm text-foreground/60 mb-4">Follow us for updates and new collections.</p>
                         <div className="flex gap-4">
-                            <a href="https://instagram.com/royalsandradiant" target="_blank" rel="noopener noreferrer" className="size-8 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors">
-                                <span className="text-xs">IG</span>
+                            <a href="https://instagram.com/royalsandradiant" target="_blank" rel="noopener noreferrer" className="font-sans size-8 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors">
+                                <span className="font-sans text-xs">IG</span>
                             </a>
-                            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="size-8 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors">
-                                <span className="text-xs">FB</span>
+                            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="font-sans size-8 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors">
+                                <span className="font-sans text-xs">FB</span>
                             </a>
                         </div>
                     </div>

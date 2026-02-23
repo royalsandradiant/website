@@ -63,7 +63,7 @@ export function ProductGrid({ products }: { products: (Product | ProductWithCate
   };
 
   return (
-    <div className="grid grid-cols-2 gap-y-10 gap-x-4 sm:grid-cols-3 md:grid-cols-4 lg:gap-x-8">
+    <div className="grid grid-cols-2 gap-y-10 gap-x-4 sm:grid-cols-3 md:grid-cols-5 lg:gap-x-8">
       {validProducts.map((product, index) => {
         const priceDisplay = getDisplayPrice(product);
         const mainImage = product.images && product.images.length > 0 ? product.images[0] : null;

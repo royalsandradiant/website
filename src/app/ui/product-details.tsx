@@ -59,7 +59,7 @@ export default function ProductDetails({ product, categoryBreadcrumb, settings }
           </div>
         )}
         
-        <p className="font-sans text-4xl md:text-5xl text-foreground mb-4">
+        <p className="font-sans text-3xl md:text-4xl text-foreground mb-4">
           {product.name}
         </p>
 
