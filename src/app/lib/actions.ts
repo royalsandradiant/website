@@ -672,7 +672,7 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
   message: string;
 }> {
   const results: BulkProductResult[] = [];
-  
+
   // Parse the products JSON from form data
   const productsJson = formData.get('products') as string;
   let products: Array<{
@@ -683,9 +683,19 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
     stock: number;
     isOnSale: boolean;
     isFeatured?: boolean;
+    isCombo?: boolean;
     salePrice?: number;
     salePercentage?: number;
     imageFileNames: string[];
+    sizeChartFileName?: string;
+    sizes?: string[];
+    variant?: {
+      colorName: string;
+      hexCode?: string;
+      price?: number;
+      stock?: number;
+      sizes?: string[];
+    };
   }>;
 
   try {
@@ -719,8 +729,11 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
       stock: product.stock,
       isOnSale: product.isOnSale || false,
       isFeatured: product.isFeatured || false,
+      isCombo: product.isCombo || false,
       salePrice: product.isOnSale ? (product.salePrice ?? null) : null,
       salePercentage: product.isOnSale ? (product.salePercentage ?? null) : null,
+      sizeChartUrl: null, // Will be set later if size chart is provided
+      sizes: product.sizes || [],
     });
 
     if (!validatedFields.success) {
@@ -764,16 +777,45 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
       continue;
     }
 
+    // Handle size chart upload if provided
+    let sizeChartUrl: string | null = null;
+    if (product.sizeChartFileName) {
+      const sizeChartFile = imageFiles.get(product.sizeChartFileName);
+      if (sizeChartFile) {
+        try {
+          sizeChartUrl = await uploadImageAsWebp(sizeChartFile, 'size-charts');
+        } catch (e) {
+          console.error('Size chart upload error', e);
+          productResult.error = e instanceof ImageUploadValidationError ? e.message : 'Size chart upload failed';
+          results.push(productResult);
+          continue;
+        }
+      }
+    }
+
     // Create product in database
     try {
-      const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage } = validatedFields.data;
-      
+      const { name, description, price, categoryId, stock, isOnSale, isFeatured, isCombo, salePrice, salePercentage, sizes } = validatedFields.data;
+
       // Calculate sale price if percentage is provided
       let finalSalePrice = salePrice;
       if (isOnSale && salePercentage !== null) {
         finalSalePrice = price * (1 - salePercentage / 100);
       }
-      
+
+      // Build variant data if provided
+      const variantData = product.variant?.colorName ? {
+        create: [{
+          colorName: product.variant.colorName,
+          hexCode: product.variant.hexCode || null,
+          price: product.variant.price || null,
+          stock: product.variant.stock || 0,
+          sizes: product.variant.sizes || [],
+          imageUrl: null,
+          images: productImages, // All product images go to the variant
+        }],
+      } : undefined;
+
       await prisma.product.create({
         data: {
           name,
@@ -783,9 +825,13 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
           stock,
           isOnSale,
           isFeatured,
+          isCombo,
           salePrice: finalSalePrice || null,
           salePercentage: salePercentage || null,
+          sizeChartUrl,
+          sizes,
           images: productImages,
+          variants: variantData,
         },
       });
       productResult.success = true;
@@ -803,6 +849,7 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
   revalidatePath('/admin');
   revalidatePath('/');
   revalidatePath('/sale');
+  revalidatePath('/combos');
   revalidatePath('/products/category', 'layout');
 
   return {
@@ -1566,6 +1613,46 @@ export async function handleStripeWebhook(payload: string, signature: string) {
         // Note: Resend test mode (onboarding@resend.dev) only sends to the account owner's email
         console.error('Failed to send order confirmation email:', emailError);
       }
+
+      // TODO: Uncomment to enable admin packing notification email
+      // This sends an email to your admin account with order details for packing
+      // try {
+      //   const adminEmail = process.env.ADMIN_EMAIL || 'your-email@example.com';
+      //   await resend.emails.send({
+      //     from: 'Orders <orders@royalsandradiant.com>',
+      //     to: adminEmail,
+      //     subject: `New Order - ${order.id} - Pack for ${isPickup ? 'Pickup' : 'Shipping'}`,
+      //     html: `
+      //       <h2>New Order Received - ${order.id}</h2>
+      //       <p><strong>Customer:</strong> ${customerName} (${customerEmail})</p>
+      //       <p><strong>Delivery Method:</strong> ${isPickup ? 'Store Pickup' : 'Shipping'}</p>
+      //       <p><strong>Total:</strong> $${totalAmount.toFixed(2)}</p>
+      //       <h3>Items to Pack:</h3>
+      //       <ul>
+      //         ${emailItems.map(item => `
+      //           <li>
+      //             ${item.name}
+      //             ${item.size ? `(Size: ${item.size})` : ''}
+      //             ${item.color ? `(Color: ${item.color})` : ''}
+      //             - Qty: ${item.quantity}
+      //           </li>
+      //         `).join('')}
+      //       </ul>
+      //       ${!isPickup ? `
+      //         <h3>Shipping Address:</h3>
+      //         <p>
+      //           ${metadata.addressLine1 || ''}<br>
+      //           ${metadata.addressLine2 ? metadata.addressLine2 + '<br>' : ''}
+      //           ${metadata.city || ''}, ${metadata.postalCode || ''}<br>
+      //           ${metadata.country || ''}
+      //         </p>
+      //       ` : '<p><strong>Pickup Order</strong></p>'}
+      //     `,
+      //   });
+      //   console.log('Admin packing email sent to:', adminEmail);
+      // } catch (adminEmailError) {
+      //   console.error('Failed to send admin packing email:', adminEmailError);
+      // }
 
       // Revalidate admin pages to show new order and updated stock
       revalidatePath('/admin/orders');

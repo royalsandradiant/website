@@ -59,7 +59,7 @@ export default function ProductDetails({ product, categoryBreadcrumb, settings }
           </div>
         )}
         
-        <p className="font-sans text-3xl md:text-4xl text-foreground mb-4">
+        <p className="font-sans text-xl md:text-2xl text-foreground mb-4">
           {product.name}
         </p>
 
@@ -84,10 +84,10 @@ export default function ProductDetails({ product, categoryBreadcrumb, settings }
         <div className="mb-8">
           {isOnSale ? (
             <div className="flex items-center gap-4">
-              <span className="text-3xl font-medium text-foreground/40 line-through">
+              <span className="text-2xl font-medium text-foreground/40 line-through">
                 ${originalPrice.toFixed(2)}
               </span>
-              <span className="text-3xl font-bold text-primary">
+              <span className="text-2xl font-bold text-primary">
                 ${displayPrice.toFixed(2)}
               </span>
               <span className="px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full border border-primary/20 shadow-sm">
@@ -95,7 +95,7 @@ export default function ProductDetails({ product, categoryBreadcrumb, settings }
               </span>
             </div>
           ) : (
-            <span className="text-3xl font-bold text-foreground">
+            <span className="text-2xl font-bold text-foreground">
               ${displayPrice.toFixed(2)}
             </span>
           )}

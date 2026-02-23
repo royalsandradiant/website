@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { bulkCreateProducts } from '@/app/lib/actions';
 import type { BulkProductResult } from '@/app/lib/actions';
 import type { LeafCategory } from '@/app/lib/definitions';
+import { AVAILABLE_SIZES } from '@/app/lib/constants';
 import { PlusIcon, TrashIcon, UploadIcon, XIcon, CheckCircleIcon, XCircleIcon, ImageIcon } from 'lucide-react';
 
 type ProductRow = {
@@ -17,9 +18,18 @@ type ProductRow = {
   stock: string;
   isOnSale: boolean;
   isFeatured: boolean;
+  isCombo: boolean;
   salePrice: string;
   salePercentage: string;
   imageFileNames: string[];
+  sizeChartFileName: string;
+  sizes: string[];
+  // Variant fields (simplified - one variant per product for bulk)
+  variantColorName: string;
+  variantHexCode: string;
+  variantPrice: string;
+  variantStock: string;
+  variantSizes: string[];
 };
 
 const createEmptyProduct = (): ProductRow => ({
@@ -31,9 +41,17 @@ const createEmptyProduct = (): ProductRow => ({
   stock: '10',
   isOnSale: false,
   isFeatured: false,
+  isCombo: false,
   salePrice: '',
   salePercentage: '',
   imageFileNames: [],
+  sizeChartFileName: '',
+  sizes: [],
+  variantColorName: '',
+  variantHexCode: '',
+  variantPrice: '',
+  variantStock: '',
+  variantSizes: [],
 });
 
 interface BulkProductFormProps {
@@ -76,6 +94,41 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
           ? current.filter(name => name !== fileName)
           : [...current, fileName];
         return { ...p, imageFileNames: updated };
+      }
+      return p;
+    }));
+  };
+
+  const toggleProductSize = (productId: string, size: string) => {
+    setProducts(products.map(p => {
+      if (p.id === productId) {
+        const current = p.sizes;
+        const updated = current.includes(size)
+          ? current.filter(s => s !== size)
+          : [...current, size];
+        return { ...p, sizes: updated };
+      }
+      return p;
+    }));
+  };
+
+  const toggleVariantSize = (productId: string, size: string) => {
+    setProducts(products.map(p => {
+      if (p.id === productId) {
+        const current = p.variantSizes;
+        const updated = current.includes(size)
+          ? current.filter(s => s !== size)
+          : [...current, size];
+        return { ...p, variantSizes: updated };
+      }
+      return p;
+    }));
+  };
+
+  const toggleSizeChartSelection = (productId: string, fileName: string) => {
+    setProducts(products.map(p => {
+      if (p.id === productId) {
+        return { ...p, sizeChartFileName: p.sizeChartFileName === fileName ? '' : fileName };
       }
       return p;
     }));
@@ -131,7 +184,7 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
 
     // Prepare form data
     const formData = new FormData();
-    
+
     // Add products as JSON
     const productsData = products.map(p => ({
       name: p.name,
@@ -141,9 +194,19 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
       stock: parseInt(p.stock) || 0,
       isOnSale: p.isOnSale,
       isFeatured: p.isFeatured,
+      isCombo: p.isCombo,
       salePrice: p.isOnSale && p.salePrice ? parseFloat(p.salePrice) : undefined,
       salePercentage: p.isOnSale && p.salePercentage ? parseInt(p.salePercentage) : undefined,
       imageFileNames: p.imageFileNames,
+      sizeChartFileName: p.sizeChartFileName,
+      sizes: p.sizes,
+      variant: p.variantColorName ? {
+        colorName: p.variantColorName,
+        hexCode: p.variantHexCode,
+        price: p.variantPrice ? parseFloat(p.variantPrice) : undefined,
+        stock: p.variantStock ? parseInt(p.variantStock) : undefined,
+        sizes: p.variantSizes,
+      } : undefined,
     }));
     formData.append('products', JSON.stringify(productsData));
 
@@ -270,14 +333,19 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-2 font-medium text-gray-600">Name *</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600">Description *</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600">Price *</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600">Category *</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600">Stock</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600">Featured</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600">Sale</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600">Images *</th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[140px]">Name *</th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[180px]">Description *</th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[80px]">Price *</th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[180px]">Category *</th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[60px]">Stock</th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[60px]">Featured</th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[60px]">Combo</th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[80px]">Sale</th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[200px]">Sizes</th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[120px]">Size Chart</th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[160px]">Variant Color</th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[160px]">Variant Sizes</th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[160px]">Images *</th>
                 <th className="py-3 px-2"></th>
               </tr>
             </thead>
@@ -343,6 +411,15 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                       className="rounded border-gray-300"
                     />
                   </td>
+                  <td className="py-2 px-2 align-top pt-3">
+                    <input
+                      type="checkbox"
+                      checked={product.isCombo}
+                      onChange={(e) => updateProduct(product.id, 'isCombo', e.target.checked)}
+                      className="rounded border-gray-300"
+                      title="Show on Combo Page"
+                    />
+                  </td>
                   <td className="py-2 px-2 align-top">
                     <div className="flex flex-col gap-1">
                       <label className="flex items-center gap-1">
@@ -374,6 +451,113 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                             className="w-full min-w-[70px] px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-2 px-2 align-top">
+                    <div className="min-w-[180px]">
+                      <div className="flex flex-wrap gap-1">
+                        {AVAILABLE_SIZES.map((size) => (
+                          <button
+                            key={size}
+                            type="button"
+                            onClick={() => toggleProductSize(product.id, size)}
+                            className={`px-2 py-0.5 text-[10px] rounded border transition-colors ${
+                              product.sizes.includes(size)
+                                ? 'bg-blue-500 text-white border-blue-500'
+                                : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                            }`}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                      {product.sizes.length > 0 && (
+                        <p className="text-[10px] text-blue-600 mt-1">{product.sizes.length} selected</p>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-2 px-2 align-top">
+                    <div className="min-w-[120px]">
+                      {uploadedImages.length === 0 ? (
+                        <p className="text-xs text-gray-400 italic">Upload images first</p>
+                      ) : (
+                        <select
+                          value={product.sizeChartFileName}
+                          onChange={(e) => toggleSizeChartSelection(product.id, e.target.value)}
+                          className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">None</option>
+                          {uploadedImages.map((file) => (
+                            <option key={file.name} value={file.name}>
+                              {file.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-2 px-2 align-top">
+                    <div className="min-w-[160px] space-y-2">
+                      <input
+                        type="text"
+                        value={product.variantColorName}
+                        onChange={(e) => updateProduct(product.id, 'variantColorName', e.target.value)}
+                        placeholder="Color name (e.g., Ruby Red)"
+                        className="w-full px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={product.variantHexCode || '#000000'}
+                          onChange={(e) => updateProduct(product.id, 'variantHexCode', e.target.value)}
+                          className="w-6 h-6 rounded border-0 p-0 overflow-hidden cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={product.variantHexCode}
+                          onChange={(e) => updateProduct(product.id, 'variantHexCode', e.target.value)}
+                          placeholder="#FF0000"
+                          className="flex-1 px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={product.variantPrice}
+                        onChange={(e) => updateProduct(product.id, 'variantPrice', e.target.value)}
+                        placeholder="Variant price (optional)"
+                        className="w-full px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="number"
+                        value={product.variantStock}
+                        onChange={(e) => updateProduct(product.id, 'variantStock', e.target.value)}
+                        placeholder="Variant stock"
+                        className="w-full px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </td>
+                  <td className="py-2 px-2 align-top">
+                    <div className="min-w-[160px]">
+                      <div className="flex flex-wrap gap-1">
+                        {AVAILABLE_SIZES.map((size) => (
+                          <button
+                            key={size}
+                            type="button"
+                            onClick={() => toggleVariantSize(product.id, size)}
+                            className={`px-2 py-0.5 text-[10px] rounded border transition-colors ${
+                              product.variantSizes.includes(size)
+                                ? 'bg-purple-500 text-white border-purple-500'
+                                : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300'
+                            }`}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                      {product.variantSizes.length > 0 && (
+                        <p className="text-[10px] text-purple-600 mt-1">{product.variantSizes.length} selected</p>
                       )}
                     </div>
                   </td>
