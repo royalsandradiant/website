@@ -3,7 +3,7 @@ import path from "node:path";
 import sharp from "sharp";
 
 export const WEBP_CONTENT_TYPE = "image/webp";
-export const DEFAULT_WEBP_QUALITY = 82;
+export const DEFAULT_WEBP_QUALITY = 90;
 export const SUPPORTED_IMAGE_EXTENSIONS = new Set([
   ".jpg",
   ".jpeg",
@@ -77,7 +77,12 @@ export async function convertBufferToWebp(
 ): Promise<Buffer> {
   return sharp(inputBuffer, { failOn: "none" })
     .rotate()
-    .webp({ quality })
+    .webp({
+      quality,
+      effort: 6,
+      smartSubsample: true,
+      lossless: false,
+    })
     .toBuffer();
 }
 
