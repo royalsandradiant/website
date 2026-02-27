@@ -4,7 +4,7 @@ import { prisma } from './prisma';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { put } from '@vercel/blob';
+import { put, del } from '@vercel/blob';
 import { Resend } from 'resend';
 import Stripe from 'stripe';
 import type { Prisma } from '@prisma/client';
@@ -61,6 +61,25 @@ async function uploadImageAsWebp(file: File, folder?: string): Promise<string> {
     contentType,
   });
   return blob.url;
+}
+
+/**
+ * Delete blob files from Vercel Blob storage.
+ * Accepts a single URL, array of URLs, or null/undefined (no-op).
+ * Silently ignores failures (e.g., blob already deleted).
+ */
+async function deleteBlobs(urls: string | string[] | null | undefined): Promise<void> {
+  if (!urls) return;
+  const urlsToDelete = Array.isArray(urls) ? urls : [urls];
+  // Filter out empty strings
+  const validUrls = urlsToDelete.filter((url): url is string => !!url && url.length > 0);
+  if (validUrls.length === 0) return;
+  try {
+    await del(validUrls);
+  } catch (error) {
+    // Silently ignore errors - blob may already be deleted
+    console.warn('Failed to delete some blobs:', error);
+  }
 }
 
 export async function createCategory(_prevState: CategoryState, formData: FormData): Promise<CategoryState> {
@@ -317,9 +336,18 @@ export async function deleteCategory(id: string): Promise<{ success: boolean; me
       };
     }
 
+    // Get category image URL before deletion
+    const category = await prisma.category.findUnique({
+      where: { id },
+      select: { imageUrl: true },
+    });
+
     await prisma.category.delete({
       where: { id },
     });
+
+    // Delete the blob image if it exists
+    await deleteBlobs(category?.imageUrl);
 
     await revalidateCategoryPaths();
     return { success: true, message: 'Category deleted successfully.' };
@@ -647,9 +675,44 @@ export async function updateProduct(id: string, _prevState: State, formData: For
 
 export async function deleteProduct(id: string) {
   try {
+    // Get product with all images before deletion (variants will cascade delete)
+    const product = await prisma.product.findUnique({
+      where: { id },
+      select: {
+        images: true,
+        sizeChartUrl: true,
+        variants: {
+          select: {
+            imageUrl: true,
+            images: true,
+          },
+        },
+      },
+    });
+
+    if (!product) {
+      throw new Error('Product not found.');
+    }
+
     await prisma.product.delete({
       where: { id },
     });
+
+    // Collect all blob URLs to delete
+    const urlsToDelete: string[] = [
+      ...product.images,
+      ...(product.sizeChartUrl ? [product.sizeChartUrl] : []),
+    ];
+
+    // Add variant images
+    for (const variant of product.variants) {
+      if (variant.imageUrl) urlsToDelete.push(variant.imageUrl);
+      urlsToDelete.push(...variant.images);
+    }
+
+    // Delete all blob images
+    await deleteBlobs(urlsToDelete);
+
     revalidatePath('/admin');
     revalidatePath('/');
     revalidatePath('/sale');
@@ -1819,7 +1882,17 @@ export async function createHeroImage(formData: FormData) {
 
 export async function deleteHeroImage(id: string) {
   try {
+    // Get hero image URL before deletion
+    const heroImage = await prisma.heroImage.findUnique({
+      where: { id },
+      select: { imageUrl: true },
+    });
+
     await prisma.heroImage.delete({ where: { id } });
+
+    // Delete the blob image
+    await deleteBlobs(heroImage?.imageUrl);
+
     revalidatePath('/admin/settings');
     revalidatePath('/');
     return { success: true };
