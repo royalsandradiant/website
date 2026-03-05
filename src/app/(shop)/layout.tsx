@@ -40,7 +40,8 @@ export default function ShopLayout({
                         <ul className="space-y-4">
                             <li><Link href="/contact" className="font-sans text-sm text-foreground/60 hover:text-primary transition-colors">Contact Us</Link></li>
                             <li><Link href="/shipping" className="font-sans text-sm text-foreground/60 hover:text-primary transition-colors">Shipping Info</Link></li>
-                            <li className="font-sans text-sm text-foreground/40 italic">All Sales Final</li>
+                            <li><Link href="/returns" className="font-sans text-sm text-foreground/60 hover:text-primary transition-colors">Return Policy</Link></li>
+                            <li><Link href="/refunds" className="font-sans text-sm text-foreground/60 hover:text-primary transition-colors">Refund Policy</Link></li>
                         </ul>
                     </div>
 
@@ -59,7 +60,25 @@ export default function ShopLayout({
                     </div>
                 </div>
 
-                <div className="pt-8 border-t border-white/5 text-center">
+                {/* Legal Links */}
+                <div className="pt-6 pb-4 border-t border-white/5">
+                    <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-center">
+                        <Link href="/terms" className="font-sans text-xs text-foreground/50 hover:text-primary transition-colors">
+                            Terms & Conditions
+                        </Link>
+                        <Link href="/privacy" className="font-sans text-xs text-foreground/50 hover:text-primary transition-colors">
+                            Privacy Policy
+                        </Link>
+                        <Link href="/returns" className="font-sans text-xs text-foreground/50 hover:text-primary transition-colors">
+                            Returns
+                        </Link>
+                        <Link href="/refunds" className="font-sans text-xs text-foreground/50 hover:text-primary transition-colors">
+                            Refunds
+                        </Link>
+                    </div>
+                </div>
+
+                <div className="pt-4 border-t border-white/5 text-center">
                     <p className="font-sans text-xs text-foreground/40">
                         © {new Date().getFullYear()} Royals and Radiant by Upasana and Foram. All rights reserved.
                     </p>
