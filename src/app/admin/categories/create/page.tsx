@@ -1,13 +1,15 @@
-import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
-import { fetchAllCategoriesFlat } from '@/app/lib/data';
-import CategoryForm from '@/app/ui/admin/category-form';
+import { ChevronLeft } from "lucide-react";
+import Link from "next/link";
+import { fetchAllCategoriesFlat } from "@/app/lib/data";
+import CategoryForm from "@/app/ui/admin/category-form";
 
 interface CreateCategoryPageProps {
   searchParams: Promise<{ parent?: string }>;
 }
 
-export default async function CreateCategoryPage({ searchParams }: CreateCategoryPageProps) {
+export default async function CreateCategoryPage({
+  searchParams,
+}: CreateCategoryPageProps) {
   const params = await searchParams;
   const allCategories = await fetchAllCategoriesFlat();
   const defaultParentId = params.parent || null;
@@ -29,8 +31,8 @@ export default async function CreateCategoryPage({ searchParams }: CreateCategor
       </div>
 
       <div className="max-w-2xl">
-        <CategoryForm 
-          allCategories={allCategories} 
+        <CategoryForm
+          allCategories={allCategories}
           defaultParentId={defaultParentId}
         />
       </div>

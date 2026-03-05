@@ -1,8 +1,12 @@
-import { fetchFeaturedProducts, fetchCategoryTree, fetchHeroImages } from '@/app/lib/data';
-import type { ProductWithCategory } from '@/app/lib/definitions';
-import { Hero } from '@/app/ui/hero';
-import { ProductGrid } from '@/app/ui/product-grid';
-import Link from 'next/link';
+import Link from "next/link";
+import {
+  fetchCategoryTree,
+  fetchFeaturedProducts,
+  fetchHeroImages,
+} from "@/app/lib/data";
+import type { ProductWithCategory } from "@/app/lib/definitions";
+import { Hero } from "@/app/ui/hero";
+import { ProductGrid } from "@/app/ui/product-grid";
 
 export default async function HomePage() {
   const [products, categoryTree, heroImages] = await Promise.all([
@@ -10,19 +14,22 @@ export default async function HomePage() {
     fetchCategoryTree(),
     fetchHeroImages(),
   ]);
-  const validProducts = products.filter((p): p is ProductWithCategory => p !== null);
+  const validProducts = products.filter(
+    (p): p is ProductWithCategory => p !== null,
+  );
 
   return (
     <div className="min-h-screen bg-background pb-20">
       <Hero images={heroImages} />
-      
+
       {/* Curator's Note / Divider */}
       <section className="container mx-auto px-4 pb-20 text-center md:px-8">
-         <span className="mb-4 block mx-auto h-12 w-px bg-primary/30"></span>
-         <p className="font-display text-3xl italic text-foreground/80 md:text-4xl lg:text-5xl max-w-4xl mx-auto leading-tight">
-           &quot;Jewelry is not meant to be hidden. It is meant to be lived in, loved, and passed down.&quot;
-         </p>
-         <span className="mt-4 block mx-auto h-12 w-px bg-primary/30"></span>
+        <span className="mb-4 block mx-auto h-12 w-px bg-primary/30"></span>
+        <p className="font-display text-3xl italic text-foreground/80 md:text-4xl lg:text-5xl max-w-4xl mx-auto leading-tight">
+          &quot;Jewelry is not meant to be hidden. It is meant to be lived in,
+          loved, and passed down.&quot;
+        </p>
+        <span className="mt-4 block mx-auto h-12 w-px bg-primary/30"></span>
       </section>
 
       <section id="products" className="container mx-auto px-4 md:px-8">
@@ -36,7 +43,7 @@ export default async function HomePage() {
         </div>
 
         <ProductGrid products={validProducts} />
-        
+
         {validProducts.length === 0 && (
           <div className="py-20 text-center">
             <p className="font-display text-2xl text-foreground/40 italic mb-4">
@@ -60,7 +67,7 @@ export default async function HomePage() {
               Explore our carefully curated collections
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {categoryTree.map((category) => (
               <Link

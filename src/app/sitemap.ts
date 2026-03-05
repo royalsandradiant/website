@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { fetchVisibleCategories, fetchProducts } from "./lib/data";
+import { fetchProducts, fetchVisibleCategories } from "./lib/data";
 import type { Category, ProductWithCategory } from "./lib/definitions";
 import { getBaseUrl } from "./lib/utils";
 

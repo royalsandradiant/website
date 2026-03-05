@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { motion, useReducedMotion, AnimatePresence } from 'motion/react';
-import Image from 'next/image';
-import { useState, useEffect, useMemo } from 'react';
-import type { HeroImage } from '@/app/lib/definitions';
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
+import type { HeroImage } from "@/app/lib/definitions";
 
 export function Hero({ images }: { images: HeroImage[] }) {
   const shouldReduceMotion = useReducedMotion();
@@ -11,17 +11,17 @@ export function Hero({ images }: { images: HeroImage[] }) {
   const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
     const updateViewport = () => setIsMobileViewport(mediaQuery.matches);
     updateViewport();
 
-    mediaQuery.addEventListener('change', updateViewport);
-    return () => mediaQuery.removeEventListener('change', updateViewport);
+    mediaQuery.addEventListener("change", updateViewport);
+    return () => mediaQuery.removeEventListener("change", updateViewport);
   }, []);
 
   const activeImages = useMemo(() => {
-    const mobileImages = images.filter((image) => image.viewport === 'mobile');
-    const desktopImages = images.filter((image) => image.viewport !== 'mobile');
+    const mobileImages = images.filter((image) => image.viewport === "mobile");
+    const desktopImages = images.filter((image) => image.viewport !== "mobile");
 
     if (isMobileViewport) {
       return mobileImages.length > 0 ? mobileImages : desktopImages;
@@ -44,7 +44,7 @@ export function Hero({ images }: { images: HeroImage[] }) {
   }, [activeImages]);
 
   const currentImage =
-    activeImages.length > 0 ? activeImages[index].imageUrl : '/hero.png';
+    activeImages.length > 0 ? activeImages[index].imageUrl : "/hero.png";
 
   return (
     <section className="relative w-full overflow-hidden pt-16">
@@ -54,7 +54,10 @@ export function Hero({ images }: { images: HeroImage[] }) {
           className="relative h-full w-full"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 0.6, ease: 'easeOut' }}
+          transition={{
+            duration: shouldReduceMotion ? 0 : 0.6,
+            ease: "easeOut",
+          }}
         >
           <AnimatePresence mode="wait">
             <motion.div
@@ -65,12 +68,15 @@ export function Hero({ images }: { images: HeroImage[] }) {
               transition={{ duration: 1, ease: "easeInOut" }}
               className="absolute inset-0"
             >
-              <Image 
-                src={currentImage} 
-                alt={activeImages[index]?.altText || "Royals and Radiant Collection"} 
-                fill 
-                className="object-cover object-center" 
-                priority 
+              <Image
+                src={currentImage}
+                alt={
+                  activeImages[index]?.altText ||
+                  "Royals and Radiant Collection"
+                }
+                fill
+                className="object-cover object-center"
+                priority
                 sizes="100vw"
               />
               {/* Overlay for better text contrast if needed later */}
@@ -87,18 +93,21 @@ export function Hero({ images }: { images: HeroImage[] }) {
                   key={image.id}
                   onClick={() => setIndex(i)}
                   className={`h-2 rounded-full transition-all ${
-                    i === index ? 'w-8 bg-white' : 'w-2 bg-white/40 hover:bg-white/60'
+                    i === index
+                      ? "w-8 bg-white"
+                      : "w-2 bg-white/40 hover:bg-white/60"
                   }`}
                   aria-label={`Go to slide ${i + 1}`}
                 />
               ))}
             </div>
           )}
-          
+
           {currentImage === "/hero.png" && (
             <div className="absolute bottom-6 left-4 right-4 max-w-xs rounded-xl border border-white/20 bg-white/30 p-4 backdrop-blur-md sm:bottom-12 sm:left-12 sm:right-auto sm:p-6">
               <p className="font-display text-lg italic leading-tight text-foreground md:text-2xl">
-                &quot;Jewelry is the perfect way to express yourself without saying a word.&quot;
+                &quot;Jewelry is the perfect way to express yourself without
+                saying a word.&quot;
               </p>
             </div>
           )}
@@ -121,10 +130,10 @@ export function Hero({ images }: { images: HeroImage[] }) {
             Wear Your <span className="italic text-accent">Story</span>
           </h1>
           <p className="mx-auto mb-12 max-w-2xl text-pretty font-sans text-lg font-medium leading-relaxed text-foreground/80 md:text-xl">
-            Where tradition meets modern elegance. 
-            Discover jewelry that celebrates your unique journey and style.
+            Where tradition meets modern elegance. Discover jewelry that
+            celebrates your unique journey and style.
           </p>
-          
+
           {/* <div className="flex justify-center">
             <motion.div whileHover={shouldReduceMotion ? {} : { scale: 1.05 }} whileTap={shouldReduceMotion ? {} : { scale: 0.95 }}>
               <Link 

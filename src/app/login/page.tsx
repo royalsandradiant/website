@@ -1,21 +1,21 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { signIn } from '@/lib/auth-client';
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { signIn } from "@/lib/auth-client";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [isPending, setIsPending] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsPending(true);
-    setError('');
+    setError("");
 
     try {
       const result = await signIn.email({
@@ -24,13 +24,13 @@ export default function LoginPage() {
       });
 
       if (result.error) {
-        setError(result.error.message || 'Invalid credentials.');
+        setError(result.error.message || "Invalid credentials.");
       } else {
-        router.push('/admin');
+        router.push("/admin");
         router.refresh();
       }
     } catch (err) {
-      setError('Something went wrong. Please try again.');
+      setError("Something went wrong. Please try again.");
     } finally {
       setIsPending(false);
     }
@@ -51,7 +51,9 @@ export default function LoginPage() {
             <h1 className="font-display text-3xl tracking-tight text-foreground">
               Royals and Radiant
             </h1>
-            <span className="text-xs text-foreground/60 tracking-wide">by Upasana and Foram</span>
+            <span className="text-xs text-foreground/60 tracking-wide">
+              by Upasana and Foram
+            </span>
             <p className="text-sm text-foreground/60 mt-1 tracking-wider uppercase">
               Admin Portal
             </p>
@@ -127,14 +129,30 @@ export default function LoginPage() {
             >
               {isPending ? (
                 <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  <svg
+                    className="animate-spin h-4 w-4"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
                   </svg>
                   Signing in...
                 </span>
               ) : (
-                'Sign In'
+                "Sign In"
               )}
             </button>
           </form>
@@ -142,8 +160,8 @@ export default function LoginPage() {
 
         {/* Back to Store Link */}
         <div className="text-center mt-6">
-          <Link 
-            href="/" 
+          <Link
+            href="/"
             className="text-sm text-foreground/60 hover:text-primary transition-colors"
           >
             ← Back to Store

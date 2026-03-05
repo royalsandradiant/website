@@ -1,10 +1,18 @@
-import { fetchProductById, fetchCategoryTree, fetchComboSettings } from '@/app/lib/data';
-import { buildBreadcrumbFromPath } from '@/app/lib/category';
-import { notFound } from 'next/navigation';
-import ProductDetails from '@/app/ui/product-details';
-import Link from 'next/link';
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { buildBreadcrumbFromPath } from "@/app/lib/category";
+import {
+  fetchCategoryTree,
+  fetchComboSettings,
+  fetchProductById,
+} from "@/app/lib/data";
+import ProductDetails from "@/app/ui/product-details";
 
-export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProductPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const [product, categoryTree, settings] = await Promise.all([
     fetchProductById(id),
@@ -17,7 +25,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   }
 
   // Get category breadcrumb
-  const categoryBreadcrumb = product.categoryRef 
+  const categoryBreadcrumb = product.categoryRef
     ? buildBreadcrumbFromPath(categoryTree, product.categoryRef.slugPath)
     : [];
 
@@ -27,12 +35,16 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         {/* Breadcrumb */}
         <nav className="mb-8 text-sm">
           <ol className="flex flex-wrap items-center gap-2 text-foreground/50">
-            <li><Link href="/" className="hover:text-primary transition-colors">Home</Link></li>
+            <li>
+              <Link href="/" className="hover:text-primary transition-colors">
+                Home
+              </Link>
+            </li>
             {categoryBreadcrumb.map((cat) => (
               <li key={cat.id} className="flex items-center gap-2">
                 <span>/</span>
-                <Link 
-                  href={`/products/category/${cat.slugPath}`} 
+                <Link
+                  href={`/products/category/${cat.slugPath}`}
                   className="hover:text-primary transition-colors"
                 >
                   {cat.name}
@@ -44,10 +56,12 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           </ol>
         </nav>
 
-        <ProductDetails product={product} categoryBreadcrumb={categoryBreadcrumb} settings={settings} />
+        <ProductDetails
+          product={product}
+          categoryBreadcrumb={categoryBreadcrumb}
+          settings={settings}
+        />
       </div>
     </div>
   );
 }
-
-

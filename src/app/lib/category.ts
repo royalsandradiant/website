@@ -1,9 +1,15 @@
-import type { Category, CategoryWithChildren, LeafCategory } from './definitions';
+import type {
+  Category,
+  CategoryWithChildren,
+  LeafCategory,
+} from "./definitions";
 
 /**
  * Build a tree structure from a flat list of categories
  */
-export function buildCategoryTree(categories: Category[]): CategoryWithChildren[] {
+export function buildCategoryTree(
+  categories: Category[],
+): CategoryWithChildren[] {
   const categoryMap = new Map<string, CategoryWithChildren>();
   const roots: CategoryWithChildren[] = [];
 
@@ -43,13 +49,13 @@ export function buildCategoryTree(categories: Category[]): CategoryWithChildren[
  */
 export function flattenCategoryTree(
   tree: CategoryWithChildren[],
-  parentPath = ''
+  parentPath = "",
 ): LeafCategory[] {
   const result: LeafCategory[] = [];
 
   for (const node of tree) {
     const fullPath = parentPath ? `${parentPath} > ${node.name}` : node.name;
-    
+
     result.push({
       id: node.id,
       name: node.name,
@@ -68,13 +74,15 @@ export function flattenCategoryTree(
 /**
  * Get only leaf categories (categories with no children)
  */
-export function getLeafCategories(tree: CategoryWithChildren[]): LeafCategory[] {
+export function getLeafCategories(
+  tree: CategoryWithChildren[],
+): LeafCategory[] {
   const result: LeafCategory[] = [];
 
-  const traverse = (nodes: CategoryWithChildren[], parentPath = ''): void => {
+  const traverse = (nodes: CategoryWithChildren[], parentPath = ""): void => {
     for (const node of nodes) {
       const fullPath = parentPath ? `${parentPath} > ${node.name}` : node.name;
-      
+
       if (node.children.length === 0) {
         result.push({
           id: node.id,
@@ -97,7 +105,7 @@ export function getLeafCategories(tree: CategoryWithChildren[]): LeafCategory[] 
  */
 export function findCategoryByPath(
   tree: CategoryWithChildren[],
-  slugPath: string
+  slugPath: string,
 ): CategoryWithChildren | null {
   for (const node of tree) {
     if (node.slugPath === slugPath) {
@@ -127,16 +135,16 @@ export function getDescendantIds(node: CategoryWithChildren): string[] {
  */
 export function buildBreadcrumbFromPath(
   tree: CategoryWithChildren[],
-  slugPath: string
+  slugPath: string,
 ): CategoryWithChildren[] {
-  const segments = slugPath.split('/');
+  const segments = slugPath.split("/");
   const breadcrumb: CategoryWithChildren[] = [];
   let currentLevel = tree;
-  let currentPath = '';
+  let currentPath = "";
 
   for (const segment of segments) {
     currentPath = currentPath ? `${currentPath}/${segment}` : segment;
-    const found = currentLevel.find(c => c.slugPath === currentPath);
+    const found = currentLevel.find((c) => c.slugPath === currentPath);
     if (found) {
       breadcrumb.push(found);
       currentLevel = found.children;

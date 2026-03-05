@@ -1,18 +1,18 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useState, useTransition } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { SearchIcon, ArrowUpDownIcon } from 'lucide-react';
+import { ArrowUpDownIcon, SearchIcon } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState, useTransition } from "react";
 
-type ProductSortField = 'name' | 'price' | 'stock' | 'category' | 'created';
-type SortOrder = 'asc' | 'desc';
+type ProductSortField = "name" | "price" | "stock" | "category" | "created";
+type SortOrder = "asc" | "desc";
 
 const SORT_OPTIONS: Array<{ value: ProductSortField; label: string }> = [
-  { value: 'created', label: 'Created Date' },
-  { value: 'name', label: 'Name' },
-  { value: 'price', label: 'Price' },
-  { value: 'stock', label: 'Stock' },
-  { value: 'category', label: 'Category' },
+  { value: "created", label: "Created Date" },
+  { value: "name", label: "Name" },
+  { value: "price", label: "Price" },
+  { value: "stock", label: "Stock" },
+  { value: "category", label: "Category" },
 ];
 
 interface AdminProductFiltersProps {
@@ -57,21 +57,21 @@ export default function AdminProductFilters({
       const trimmedSearch = nextSearch.trim();
 
       if (trimmedSearch) {
-        params.set('search', trimmedSearch);
+        params.set("search", trimmedSearch);
       } else {
-        params.delete('search');
+        params.delete("search");
       }
 
-      if (nextSort !== 'created') {
-        params.set('sort', nextSort);
+      if (nextSort !== "created") {
+        params.set("sort", nextSort);
       } else {
-        params.delete('sort');
+        params.delete("sort");
       }
 
-      if (nextOrder !== 'desc') {
-        params.set('order', nextOrder);
+      if (nextOrder !== "desc") {
+        params.set("order", nextOrder);
       } else {
-        params.delete('order');
+        params.delete("order");
       }
 
       const queryString = params.toString();
@@ -84,7 +84,7 @@ export default function AdminProductFilters({
   );
 
   useEffect(() => {
-    const currentSearch = (searchParams.get('search') || '').trim();
+    const currentSearch = (searchParams.get("search") || "").trim();
     const nextSearch = searchValue.trim();
     if (currentSearch === nextSearch) {
       return;
@@ -108,9 +108,9 @@ export default function AdminProductFilters({
   };
 
   const handleClear = () => {
-    setSearchValue('');
-    setSortValue('created');
-    setOrderValue('desc');
+    setSearchValue("");
+    setSortValue("created");
+    setOrderValue("desc");
     startTransition(() => {
       router.replace(pathname, { scroll: false });
     });
@@ -120,7 +120,10 @@ export default function AdminProductFilters({
     <div className="mt-4 rounded-lg border border-gray-200 bg-white p-3">
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-[240px] flex-1">
-          <label htmlFor="product-search" className="mb-1 block text-xs font-medium text-gray-600">
+          <label
+            htmlFor="product-search"
+            className="mb-1 block text-xs font-medium text-gray-600"
+          >
             Search products
           </label>
           <div className="relative">
@@ -137,7 +140,10 @@ export default function AdminProductFilters({
         </div>
 
         <div className="w-full sm:w-52">
-          <label htmlFor="product-sort" className="mb-1 block text-xs font-medium text-gray-600">
+          <label
+            htmlFor="product-sort"
+            className="mb-1 block text-xs font-medium text-gray-600"
+          >
             Sort field
           </label>
           <div className="relative">
@@ -145,7 +151,9 @@ export default function AdminProductFilters({
             <select
               id="product-sort"
               value={sortValue}
-              onChange={(event) => handleSortChange(event.target.value as ProductSortField)}
+              onChange={(event) =>
+                handleSortChange(event.target.value as ProductSortField)
+              }
               className="block w-full rounded-md border border-gray-200 py-2 pl-9 pr-3 text-sm outline-2"
             >
               {SORT_OPTIONS.map((option) => (
@@ -158,13 +166,18 @@ export default function AdminProductFilters({
         </div>
 
         <div className="w-full sm:w-44">
-          <label htmlFor="product-order" className="mb-1 block text-xs font-medium text-gray-600">
+          <label
+            htmlFor="product-order"
+            className="mb-1 block text-xs font-medium text-gray-600"
+          >
             Order
           </label>
           <select
             id="product-order"
             value={orderValue}
-            onChange={(event) => handleOrderChange(event.target.value as SortOrder)}
+            onChange={(event) =>
+              handleOrderChange(event.target.value as SortOrder)
+            }
             className="block w-full rounded-md border border-gray-200 py-2 px-3 text-sm outline-2"
           >
             <option value="desc">Descending</option>
@@ -182,7 +195,9 @@ export default function AdminProductFilters({
       </div>
 
       <p className="mt-2 text-xs text-gray-500">
-        {isPending ? 'Updating...' : `Showing ${filteredCount} of ${totalCount} products${search ? ` for "${search}"` : ''}.`}
+        {isPending
+          ? "Updating..."
+          : `Showing ${filteredCount} of ${totalCount} products${search ? ` for "${search}"` : ""}.`}
       </p>
     </div>
   );

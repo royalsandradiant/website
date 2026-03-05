@@ -1,20 +1,27 @@
-import { notFound } from 'next/navigation';
-import Link from 'next/link';
-import { fetchCategoryBySlugPath, fetchProductsByCategoryPath, fetchCategoryTree } from '@/app/lib/data';
-import { ProductGrid } from '@/app/ui/product-grid';
-import { ProductSort } from '@/app/ui/product-sort';
-import { buildBreadcrumbFromPath } from '@/app/lib/category';
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { buildBreadcrumbFromPath } from "@/app/lib/category";
+import {
+  fetchCategoryBySlugPath,
+  fetchCategoryTree,
+  fetchProductsByCategoryPath,
+} from "@/app/lib/data";
+import { ProductGrid } from "@/app/ui/product-grid";
+import { ProductSort } from "@/app/ui/product-sort";
 
 interface CategoryPageProps {
   params: Promise<{ slug: string[] }>;
   searchParams: Promise<{ sort?: string }>;
 }
 
-export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
+export default async function CategoryPage({
+  params,
+  searchParams,
+}: CategoryPageProps) {
   const { slug } = await params;
   const { sort } = await searchParams;
-  const slugPath = slug.join('/');
-  
+  const slugPath = slug.join("/");
+
   const [category, products, categoryTree] = await Promise.all([
     fetchCategoryBySlugPath(slugPath),
     fetchProductsByCategoryPath(slugPath),
@@ -29,20 +36,22 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
 
   // Sorting logic
   const sortedProducts = [...products];
-  if (sort === 'price-asc') {
+  if (sort === "price-asc") {
     sortedProducts.sort((a, b) => {
-      const priceA = a?.isOnSale && a?.salePrice ? a.salePrice : (a?.price || 0);
-      const priceB = b?.isOnSale && b?.salePrice ? b.salePrice : (b?.price || 0);
+      const priceA = a?.isOnSale && a?.salePrice ? a.salePrice : a?.price || 0;
+      const priceB = b?.isOnSale && b?.salePrice ? b.salePrice : b?.price || 0;
       return priceA - priceB;
     });
-  } else if (sort === 'price-desc') {
+  } else if (sort === "price-desc") {
     sortedProducts.sort((a, b) => {
-      const priceA = a?.isOnSale && a?.salePrice ? a.salePrice : (a?.price || 0);
-      const priceB = b?.isOnSale && b?.salePrice ? b.salePrice : (b?.price || 0);
+      const priceA = a?.isOnSale && a?.salePrice ? a.salePrice : a?.price || 0;
+      const priceB = b?.isOnSale && b?.salePrice ? b.salePrice : b?.price || 0;
       return priceB - priceA;
     });
-  } else if (sort === 'featured') {
-    sortedProducts.sort((a, b) => (b?.isFeatured ? 1 : 0) - (a?.isFeatured ? 1 : 0));
+  } else if (sort === "featured") {
+    sortedProducts.sort(
+      (a, b) => (b?.isFeatured ? 1 : 0) - (a?.isFeatured ? 1 : 0),
+    );
   }
 
   return (
@@ -115,7 +124,8 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       {/* Results count and Sort */}
       <div className="container mx-auto px-4 md:px-8 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
         <p className="text-sm text-foreground/60">
-          {products.length} {products.length === 1 ? 'product' : 'products'} found
+          {products.length} {products.length === 1 ? "product" : "products"}{" "}
+          found
         </p>
         <ProductSort />
       </div>
@@ -134,7 +144,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
             </p>
             {category.parentId && (
               <Link
-                href={`/products/category/${slugPath.split('/').slice(0, -1).join('/')}`}
+                href={`/products/category/${slugPath.split("/").slice(0, -1).join("/")}`}
                 className="text-primary hover:underline"
               >
                 ← Browse parent category

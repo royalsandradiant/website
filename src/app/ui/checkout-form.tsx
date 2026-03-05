@@ -1,49 +1,57 @@
-'use client';
+"use client";
 
-import { useCart } from '@/app/lib/cart-context';
-import { createStripeCheckoutSession, validateCoupon } from '@/app/lib/actions';
-import { useState, useMemo } from 'react';
-import { Loader2, CreditCard, ShieldCheck, Tag, X, MapPin, Truck } from 'lucide-react';
-import type { ShippingRule } from '@/app/lib/definitions';
-import { inferShippingCategoryFromText } from '@/app/lib/shipping';
+import {
+  CreditCard,
+  Loader2,
+  MapPin,
+  ShieldCheck,
+  Tag,
+  Truck,
+  X,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+import { createStripeCheckoutSession, validateCoupon } from "@/app/lib/actions";
+import { useCart } from "@/app/lib/cart-context";
+import type { ShippingRule } from "@/app/lib/definitions";
+import { inferShippingCategoryFromText } from "@/app/lib/shipping";
 
-export default function CheckoutForm({ 
+export default function CheckoutForm({
   shippingRules,
   allowPickup = false,
-  pickupAddress = ''
-}: { 
-  shippingRules: ShippingRule[],
-  allowPickup?: boolean,
-  pickupAddress?: string | null
+  pickupAddress = "",
+}: {
+  shippingRules: ShippingRule[];
+  allowPickup?: boolean;
+  pickupAddress?: string | null;
 }) {
   const { items, total } = useCart();
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  
+  const [error, setError] = useState("");
+
   // Pickup State
   const [isPickup, setIsPickup] = useState(false);
-  const [couponCode, setCouponCode] = useState('');
+  const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<{
     code: string;
     discountType: string;
     discountValue: number;
   } | null>(null);
-  const [couponError, setCouponError] = useState('');
+  const [couponError, setCouponError] = useState("");
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   const [formData, setFormData] = useState({
-    customerName: '',
-    customerEmail: '',
-    addressLine1: '',
-    addressLine2: '',
-    city: '',
-    postalCode: '',
-    country: '',
+    customerName: "",
+    customerEmail: "",
+    addressLine1: "",
+    addressLine2: "",
+    city: "",
+    postalCode: "",
+    country: "",
   });
 
   // Calculate Discount
   const discountAmount = useMemo(() => {
     if (!appliedCoupon) return 0;
-    if (appliedCoupon.discountType === 'PERCENTAGE') {
+    if (appliedCoupon.discountType === "PERCENTAGE") {
       return (total * appliedCoupon.discountValue) / 100;
     }
     return appliedCoupon.discountValue;
@@ -52,15 +60,18 @@ export default function CheckoutForm({
   const subtotalAfterDiscount = Math.max(0, total - discountAmount);
 
   const cartShippingContext = useMemo(() => {
-    const categories = items.map((item) =>
-      item.shippingCategory ?? inferShippingCategoryFromText(item.name) ?? 'jewelry',
+    const categories = items.map(
+      (item) =>
+        item.shippingCategory ??
+        inferShippingCategoryFromText(item.name) ??
+        "jewelry",
     );
-    const hasClothes = categories.includes('clothes');
-    const hasJewelry = categories.includes('jewelry');
+    const hasClothes = categories.includes("clothes");
+    const hasJewelry = categories.includes("jewelry");
     return {
       hasClothes,
       hasJewelry,
-      effectiveCategory: hasClothes ? 'clothes' : 'jewelry',
+      effectiveCategory: hasClothes ? "clothes" : "jewelry",
     };
   }, [items]);
 
@@ -73,7 +84,9 @@ export default function CheckoutForm({
     }
 
     // Fall back to jewelry rules, then any rule, for legacy data safety.
-    const jewelryRules = shippingRules.filter((rule) => rule.category === 'jewelry');
+    const jewelryRules = shippingRules.filter(
+      (rule) => rule.category === "jewelry",
+    );
     return jewelryRules.length > 0 ? jewelryRules : shippingRules;
   }, [shippingRules, cartShippingContext.effectiveCategory]);
 
@@ -81,9 +94,10 @@ export default function CheckoutForm({
   const shippingCost = useMemo(() => {
     if (isPickup) return 0;
     if (activeShippingRules.length === 0) return 0;
-    const rule = activeShippingRules.find((r) =>
-      subtotalAfterDiscount >= Number(r.minAmount) && 
-      (r.maxAmount === null || subtotalAfterDiscount <= Number(r.maxAmount))
+    const rule = activeShippingRules.find(
+      (r) =>
+        subtotalAfterDiscount >= Number(r.minAmount) &&
+        (r.maxAmount === null || subtotalAfterDiscount <= Number(r.maxAmount)),
     );
     return rule ? Number(rule.price) : 0;
   }, [subtotalAfterDiscount, activeShippingRules, isPickup]);
@@ -98,23 +112,34 @@ export default function CheckoutForm({
 
   const finalTotal = subtotalAfterDiscount + shippingCost;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const validateForm = () => {
-    const requiredFields: (keyof typeof formData)[] = ['customerName', 'customerEmail', 'addressLine1', 'city', 'postalCode', 'country'];
+    const requiredFields: (keyof typeof formData)[] = [
+      "customerName",
+      "customerEmail",
+      "addressLine1",
+      "city",
+      "postalCode",
+      "country",
+    ];
     for (const field of requiredFields) {
       if (!formData[field]) {
-        setError(`Please fill in your ${field.replace(/([A-Z])/g, ' $1').toLowerCase()}.`);
+        setError(
+          `Please fill in your ${field.replace(/([A-Z])/g, " $1").toLowerCase()}.`,
+        );
         document.getElementById(field)?.focus();
         return false;
       }
     }
-    
-    if (!formData.customerEmail.includes('@')) {
+
+    if (!formData.customerEmail.includes("@")) {
       setError("Please enter a valid email address.");
-      document.getElementById('customerEmail')?.focus();
+      document.getElementById("customerEmail")?.focus();
       return false;
     }
     setError("");
@@ -124,14 +149,14 @@ export default function CheckoutForm({
   const handleApplyCoupon = async () => {
     if (!couponCode) return;
     setIsValidatingCoupon(true);
-    setCouponError('');
-    
+    setCouponError("");
+
     const result = await validateCoupon(couponCode, total);
     if (result.success && result.coupon) {
       setAppliedCoupon(result.coupon);
-      setCouponCode('');
+      setCouponCode("");
     } else {
-      setCouponError(result.error || 'Invalid coupon code.');
+      setCouponError(result.error || "Invalid coupon code.");
     }
     setIsValidatingCoupon(false);
   };
@@ -148,11 +173,11 @@ export default function CheckoutForm({
     }
 
     setIsLoading(true);
-    setError('');
+    setError("");
 
     try {
       const result = await createStripeCheckoutSession(
-        items.map(item => ({
+        items.map((item) => ({
           id: item.id,
           name: item.name,
           price: item.price,
@@ -160,32 +185,37 @@ export default function CheckoutForm({
           images: item.imagePath ? [item.imagePath] : [],
           comboId: item.comboId,
           originalProductId: item.originalProductId,
+          color: item.color,
           size: item.size,
         })),
-        isPickup ? {
-          customerName: formData.customerName,
-          customerEmail: formData.customerEmail,
-          addressLine1: 'STORE PICKUP',
-          city: 'PICKUP',
-          postalCode: 'PICKUP',
-          country: 'US',
-        } : formData,
-        shippingCost,
-        appliedCoupon ? {
-          code: appliedCoupon.code,
-          discountAmount: discountAmount
-        } : undefined,
         isPickup
+          ? {
+              customerName: formData.customerName,
+              customerEmail: formData.customerEmail,
+              addressLine1: "STORE PICKUP",
+              city: "PICKUP",
+              postalCode: "PICKUP",
+              country: "US",
+            }
+          : formData,
+        shippingCost,
+        appliedCoupon
+          ? {
+              code: appliedCoupon.code,
+              discountAmount: discountAmount,
+            }
+          : undefined,
+        isPickup,
       );
 
       if (result.url) {
         window.location.href = result.url;
       } else {
-        setError(result.error || 'Failed to create checkout session');
+        setError(result.error || "Failed to create checkout session");
       }
     } catch (err) {
-      console.error('Checkout error:', err);
-      setError('An unexpected error occurred. Please try again.');
+      console.error("Checkout error:", err);
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -196,7 +226,9 @@ export default function CheckoutForm({
       {/* Shipping Address Form */}
       <div>
         <div className="flex items-center justify-between mb-6">
-          <h2 className="font-display text-2xl text-foreground">Delivery Method</h2>
+          <h2 className="font-display text-2xl text-foreground">
+            Delivery Method
+          </h2>
         </div>
 
         {allowPickup && (
@@ -205,9 +237,9 @@ export default function CheckoutForm({
               type="button"
               onClick={() => setIsPickup(false)}
               className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                !isPickup 
-                  ? 'border-primary bg-primary/5 text-primary' 
-                  : 'border-border bg-transparent text-foreground/60 hover:border-foreground/20'
+                !isPickup
+                  ? "border-primary bg-primary/5 text-primary"
+                  : "border-border bg-transparent text-foreground/60 hover:border-foreground/20"
               }`}
             >
               <Truck className="h-6 w-6" />
@@ -217,9 +249,9 @@ export default function CheckoutForm({
               type="button"
               onClick={() => setIsPickup(true)}
               className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                isPickup 
-                  ? 'border-primary bg-primary/5 text-primary' 
-                  : 'border-border bg-transparent text-foreground/60 hover:border-foreground/20'
+                isPickup
+                  ? "border-primary bg-primary/5 text-primary"
+                  : "border-border bg-transparent text-foreground/60 hover:border-foreground/20"
               }`}
             >
               <MapPin className="h-6 w-6" />
@@ -231,7 +263,10 @@ export default function CheckoutForm({
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
             <div>
-              <label htmlFor="customerName" className="block text-sm font-medium text-foreground/70 mb-2">
+              <label
+                htmlFor="customerName"
+                className="block text-sm font-medium text-foreground/70 mb-2"
+              >
                 Full Name *
               </label>
               <input
@@ -247,7 +282,10 @@ export default function CheckoutForm({
               />
             </div>
             <div>
-              <label htmlFor="customerEmail" className="block text-sm font-medium text-foreground/70 mb-2">
+              <label
+                htmlFor="customerEmail"
+                className="block text-sm font-medium text-foreground/70 mb-2"
+              >
                 Email *
               </label>
               <input
@@ -267,9 +305,14 @@ export default function CheckoutForm({
 
           {!isPickup ? (
             <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-              <h3 className="font-display text-xl text-foreground mt-6 mb-4">Shipping Address</h3>
+              <h3 className="font-display text-xl text-foreground mt-6 mb-4">
+                Shipping Address
+              </h3>
               <div>
-                <label htmlFor="addressLine1" className="block text-sm font-medium text-foreground/70 mb-2">
+                <label
+                  htmlFor="addressLine1"
+                  className="block text-sm font-medium text-foreground/70 mb-2"
+                >
                   Address Line 1 *
                 </label>
                 <input
@@ -285,7 +328,10 @@ export default function CheckoutForm({
                 />
               </div>
               <div>
-                <label htmlFor="addressLine2" className="block text-sm font-medium text-foreground/70 mb-2">
+                <label
+                  htmlFor="addressLine2"
+                  className="block text-sm font-medium text-foreground/70 mb-2"
+                >
                   Address Line 2 (Optional)
                 </label>
                 <input
@@ -301,7 +347,10 @@ export default function CheckoutForm({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="city" className="block text-sm font-medium text-foreground/70 mb-2">
+                  <label
+                    htmlFor="city"
+                    className="block text-sm font-medium text-foreground/70 mb-2"
+                  >
                     City *
                   </label>
                   <input
@@ -317,7 +366,10 @@ export default function CheckoutForm({
                   />
                 </div>
                 <div>
-                  <label htmlFor="postalCode" className="block text-sm font-medium text-foreground/70 mb-2">
+                  <label
+                    htmlFor="postalCode"
+                    className="block text-sm font-medium text-foreground/70 mb-2"
+                  >
                     Postal Code *
                   </label>
                   <input
@@ -335,7 +387,10 @@ export default function CheckoutForm({
                 </div>
               </div>
               <div>
-                <label htmlFor="country" className="block text-sm font-medium text-foreground/70 mb-2">
+                <label
+                  htmlFor="country"
+                  className="block text-sm font-medium text-foreground/70 mb-2"
+                >
                   Country *
                 </label>
                 <select
@@ -361,12 +416,15 @@ export default function CheckoutForm({
               <div className="flex items-start gap-3">
                 <MapPin className="h-5 w-5 text-primary mt-0.5" />
                 <div>
-                  <h3 className="font-semibold text-primary mb-1">Pickup Location</h3>
+                  <h3 className="font-semibold text-primary mb-1">
+                    Pickup Location
+                  </h3>
                   <p className="text-sm text-foreground/70 whitespace-pre-line">
-                    {pickupAddress || 'Address not configured.'}
+                    {pickupAddress || "Address not configured."}
                   </p>
                   <p className="text-xs text-primary/60 mt-4 italic">
-                    * Please bring your order confirmation and a valid ID when picking up.
+                    * Please bring your order confirmation and a valid ID when
+                    picking up.
                   </p>
                 </div>
               </div>
@@ -374,7 +432,10 @@ export default function CheckoutForm({
           )}
         </div>
         {error && (
-          <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4" role="alert">
+          <div
+            className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4"
+            role="alert"
+          >
             <p className="text-sm text-red-600">{error}</p>
           </div>
         )}
@@ -382,12 +443,17 @@ export default function CheckoutForm({
 
       {/* Order Summary & Payment */}
       <div>
-        <h2 className="mb-6 font-display text-2xl text-foreground">Order Summary</h2>
+        <h2 className="mb-6 font-display text-2xl text-foreground">
+          Order Summary
+        </h2>
         <div className="rounded-lg bg-secondary/30 border border-border p-6">
           {/* Order Items */}
           <div className="space-y-4 mb-6">
             {items.map((item) => (
-              <div key={item.id} className="flex justify-between text-sm tabular-nums">
+              <div
+                key={item.id}
+                className="flex justify-between text-sm tabular-nums"
+              >
                 <div className="flex flex-col">
                   <span className="text-foreground/70">
                     {item.name} × {item.quantity}
@@ -423,10 +489,12 @@ export default function CheckoutForm({
                   <input
                     type="text"
                     value={couponCode}
-                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    onChange={(e) =>
+                      setCouponCode(e.target.value.toUpperCase())
+                    }
                     placeholder="Coupon Code"
                     className="w-full pl-9 pr-4 py-2 bg-secondary/50 border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                    onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                    onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
                   />
                 </div>
                 <button
@@ -435,16 +503,26 @@ export default function CheckoutForm({
                   disabled={isValidatingCoupon || !couponCode}
                   className="px-4 py-2 bg-secondary text-foreground text-sm font-medium rounded-lg hover:bg-secondary/80 disabled:opacity-50 transition-colors"
                 >
-                  {isValidatingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
+                  {isValidatingCoupon ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Apply"
+                  )}
                 </button>
               </div>
             ) : (
               <div className="flex items-center justify-between bg-primary/10 border border-primary/20 rounded-lg px-3 py-2">
                 <div className="flex items-center gap-2">
                   <Tag className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium text-primary">{appliedCoupon.code}</span>
+                  <span className="text-sm font-medium text-primary">
+                    {appliedCoupon.code}
+                  </span>
                   <span className="text-xs text-primary/70">
-                    ({appliedCoupon.discountType === 'PERCENTAGE' ? `${appliedCoupon.discountValue}%` : `$${appliedCoupon.discountValue}`} off)
+                    (
+                    {appliedCoupon.discountType === "PERCENTAGE"
+                      ? `${appliedCoupon.discountValue}%`
+                      : `$${appliedCoupon.discountValue}`}{" "}
+                    off)
                   </span>
                 </div>
                 <button
@@ -457,31 +535,41 @@ export default function CheckoutForm({
                 </button>
               </div>
             )}
-            {couponError && <p className="mt-1 text-xs text-red-500">{couponError}</p>}
+            {couponError && (
+              <p className="mt-1 text-xs text-red-500">{couponError}</p>
+            )}
           </div>
 
           {appliedCoupon && (
             <div className="flex justify-between text-sm mb-2 tabular-nums">
               <span className="text-foreground/70">Discount</span>
-              <span className="text-primary">-${discountAmount.toFixed(2)}</span>
+              <span className="text-primary">
+                -${discountAmount.toFixed(2)}
+              </span>
             </div>
           )}
 
           <div className="flex justify-between text-sm mb-4 tabular-nums">
             <span className="text-foreground/70">
-              {isPickup
-                ? 'Store Pickup'
-                : `Shipping`}
+              {isPickup ? "Store Pickup" : `Shipping`}
             </span>
-            <span className={shippingCost === 0 ? "text-green-600 font-bold" : "text-foreground"}>
+            <span
+              className={
+                shippingCost === 0
+                  ? "text-green-600 font-bold"
+                  : "text-foreground"
+              }
+            >
               {shippingCost === 0 ? "FREE" : `$${shippingCost.toFixed(2)}`}
             </span>
           </div>
-          {!isPickup && cartShippingContext.hasClothes && cartShippingContext.hasJewelry && (
-            <p className="mb-4 text-xs text-foreground/50">
-              Mixed cart detected: clothes shipping rules are prioritized.
-            </p>
-          )}
+          {!isPickup &&
+            cartShippingContext.hasClothes &&
+            cartShippingContext.hasJewelry && (
+              <p className="mb-4 text-xs text-foreground/50">
+                Mixed cart detected: clothes shipping rules are prioritized.
+              </p>
+            )}
 
           {/* Total */}
           <div className="flex justify-between text-lg font-semibold mb-6 tabular-nums">
@@ -504,7 +592,7 @@ export default function CheckoutForm({
             aria-busy={isLoading}
           >
             {isLoading && <Loader2 className="h-5 w-5 animate-spin" />}
-            <CreditCard className={`h-5 w-5 ${isLoading ? 'hidden' : ''}`} />
+            <CreditCard className={`h-5 w-5 ${isLoading ? "hidden" : ""}`} />
             <span>Proceed to Payment</span>
           </button>
 

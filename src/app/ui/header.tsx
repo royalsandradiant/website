@@ -1,10 +1,10 @@
 "use client";
 
+import { ChevronDown, ChevronRight, Menu, ShoppingBag, X } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
-import { ShoppingBag, Menu, X, ChevronDown, ChevronRight } from "lucide-react";
-import { useCart } from "@/app/lib/cart-context";
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { useCart } from "@/app/lib/cart-context";
 import type { CategoryWithChildren } from "@/app/lib/definitions";
 
 interface HeaderProps {

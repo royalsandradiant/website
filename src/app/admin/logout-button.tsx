@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { signOut } from '@/lib/auth-client';
-import { LogOut } from 'lucide-react';
+import { LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { signOut } from "@/lib/auth-client";
 
 export function LogoutButton() {
   const router = useRouter();
 
   const handleLogout = async () => {
     await signOut();
-    router.push('/login');
+    router.push("/login");
     router.refresh();
   };
 

@@ -1,35 +1,45 @@
-'use client';
+"use client";
 
-import { useState, useMemo } from 'react';
-import Link from 'next/link';
-import { ChevronRight, ChevronDown, Pencil, Trash2, Plus, EyeOff, GripVertical } from 'lucide-react';
-import * as AlertDialog from '@radix-ui/react-alert-dialog';
+import type { DragEndEvent } from "@dnd-kit/core";
 import {
-  DndContext,
   closestCenter,
+  DndContext,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
-} from '@dnd-kit/core';
-import type { DragEndEvent } from '@dnd-kit/core';
+} from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { deleteCategory, reorderCategories } from '@/app/lib/actions';
-import type { CategoryWithChildren } from '@/app/lib/definitions';
-import { cn } from '@/app/lib/utils';
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
+import {
+  ChevronDown,
+  ChevronRight,
+  EyeOff,
+  GripVertical,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
+import { deleteCategory, reorderCategories } from "@/app/lib/actions";
+import type { CategoryWithChildren } from "@/app/lib/definitions";
+import { cn } from "@/app/lib/utils";
 
 interface CategoryTreeProps {
   categories: CategoryWithChildren[];
 }
 
-export default function CategoryTree({ categories: initialCategories }: CategoryTreeProps) {
+export default function CategoryTree({
+  categories: initialCategories,
+}: CategoryTreeProps) {
   const [categories, setCategories] = useState(initialCategories);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -41,10 +51,10 @@ export default function CategoryTree({ categories: initialCategories }: Category
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
-  const categoryIds = useMemo(() => categories.map(c => c.id), [categories]);
+  const categoryIds = useMemo(() => categories.map((c) => c.id), [categories]);
 
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -92,9 +102,16 @@ export default function CategoryTree({ categories: initialCategories }: Category
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
-        <SortableContext items={categoryIds} strategy={verticalListSortingStrategy}>
+        <SortableContext
+          items={categoryIds}
+          strategy={verticalListSortingStrategy}
+        >
           {categories.map((category) => (
-            <SortableCategoryNode key={category.id} category={category} depth={0} />
+            <SortableCategoryNode
+              key={category.id}
+              category={category}
+              depth={0}
+            />
           ))}
         </SortableContext>
       </DndContext>
@@ -142,7 +159,12 @@ interface CategoryNodeProps {
   isDragging?: boolean;
 }
 
-function CategoryNode({ category, depth, dragHandleProps, isDragging }: CategoryNodeProps) {
+function CategoryNode({
+  category,
+  depth,
+  dragHandleProps,
+  isDragging,
+}: CategoryNodeProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -158,10 +180,13 @@ function CategoryNode({ category, depth, dragHandleProps, isDragging }: Category
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
-  const childIds = useMemo(() => childCategories.map(c => c.id), [childCategories]);
+  const childIds = useMemo(
+    () => childCategories.map((c) => c.id),
+    [childCategories],
+  );
 
   async function handleChildDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -187,9 +212,9 @@ function CategoryNode({ category, depth, dragHandleProps, isDragging }: Category
   async function handleDelete() {
     setIsDeleting(true);
     setDeleteError(null);
-    
+
     const result = await deleteCategory(category.id);
-    
+
     if (!result.success) {
       setDeleteError(result.message);
       setIsDeleting(false);
@@ -200,9 +225,9 @@ function CategoryNode({ category, depth, dragHandleProps, isDragging }: Category
     <div>
       <div
         className={cn(
-          'flex items-center gap-2 py-2 px-3 rounded-md hover:bg-gray-100 group',
-          !category.isVisible && 'opacity-60',
-          isDragging && 'bg-blue-50 shadow-lg ring-2 ring-blue-200'
+          "flex items-center gap-2 py-2 px-3 rounded-md hover:bg-gray-100 group",
+          !category.isVisible && "opacity-60",
+          isDragging && "bg-blue-50 shadow-lg ring-2 ring-blue-200",
         )}
         style={{ paddingLeft: `${depth * 24 + 12}px` }}
       >
@@ -221,10 +246,10 @@ function CategoryNode({ category, depth, dragHandleProps, isDragging }: Category
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
           className={cn(
-            'size-6 flex items-center justify-center rounded hover:bg-gray-200',
-            !hasChildren && 'invisible'
+            "size-6 flex items-center justify-center rounded hover:bg-gray-200",
+            !hasChildren && "invisible",
           )}
-          aria-label={isExpanded ? 'Collapse' : 'Expand'}
+          aria-label={isExpanded ? "Collapse" : "Expand"}
         >
           {isExpanded ? (
             <ChevronDown className="size-4" />
@@ -237,7 +262,9 @@ function CategoryNode({ category, depth, dragHandleProps, isDragging }: Category
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-medium truncate">{category.name}</span>
-            <span className="text-xs text-gray-400 font-mono">/{category.slugPath}</span>
+            <span className="text-xs text-gray-400 font-mono">
+              /{category.slugPath}
+            </span>
             {!category.isVisible && (
               <span className="inline-flex items-center gap-1 text-xs text-gray-500">
                 <EyeOff className="size-3" />
@@ -246,7 +273,9 @@ function CategoryNode({ category, depth, dragHandleProps, isDragging }: Category
             )}
           </div>
           {category.description && (
-            <p className="text-sm text-gray-500 truncate">{category.description}</p>
+            <p className="text-sm text-gray-500 truncate">
+              {category.description}
+            </p>
           )}
         </div>
 
@@ -268,7 +297,7 @@ function CategoryNode({ category, depth, dragHandleProps, isDragging }: Category
           >
             <Pencil className="size-4" />
           </Link>
-          
+
           <AlertDialog.Root>
             <AlertDialog.Trigger asChild>
               <button
@@ -287,15 +316,16 @@ function CategoryNode({ category, depth, dragHandleProps, isDragging }: Category
                   Delete Category
                 </AlertDialog.Title>
                 <AlertDialog.Description className="mt-2 text-gray-600">
-                  Are you sure you want to delete "{category.name}"? This action cannot be undone.
+                  Are you sure you want to delete "{category.name}"? This action
+                  cannot be undone.
                 </AlertDialog.Description>
-                
+
                 {deleteError && (
                   <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
                     {deleteError}
                   </div>
                 )}
-                
+
                 <div className="mt-6 flex justify-end gap-3">
                   <AlertDialog.Cancel asChild>
                     <button
@@ -312,7 +342,7 @@ function CategoryNode({ category, depth, dragHandleProps, isDragging }: Category
                       disabled={isDeleting}
                       className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
                     >
-                      {isDeleting ? 'Deleting...' : 'Delete'}
+                      {isDeleting ? "Deleting..." : "Delete"}
                     </button>
                   </AlertDialog.Action>
                 </div>
@@ -333,9 +363,16 @@ function CategoryNode({ category, depth, dragHandleProps, isDragging }: Category
             collisionDetection={closestCenter}
             onDragEnd={handleChildDragEnd}
           >
-            <SortableContext items={childIds} strategy={verticalListSortingStrategy}>
+            <SortableContext
+              items={childIds}
+              strategy={verticalListSortingStrategy}
+            >
               {childCategories.map((child) => (
-                <SortableChildNode key={child.id} category={child} depth={depth + 1} />
+                <SortableChildNode
+                  key={child.id}
+                  category={child}
+                  depth={depth + 1}
+                />
               ))}
             </SortableContext>
           </DndContext>
@@ -345,7 +382,13 @@ function CategoryNode({ category, depth, dragHandleProps, isDragging }: Category
   );
 }
 
-function SortableChildNode({ category, depth }: { category: CategoryWithChildren; depth: number }) {
+function SortableChildNode({
+  category,
+  depth,
+}: {
+  category: CategoryWithChildren;
+  depth: number;
+}) {
   const {
     attributes,
     listeners,

@@ -1,13 +1,21 @@
-'use client';
+"use client";
 
-import { useState, useRef, useCallback } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { bulkCreateProducts } from '@/app/lib/actions';
-import type { BulkProductResult } from '@/app/lib/actions';
-import type { LeafCategory } from '@/app/lib/definitions';
-import { AVAILABLE_SIZES } from '@/app/lib/constants';
-import { PlusIcon, TrashIcon, UploadIcon, XIcon, CheckCircleIcon, XCircleIcon, ImageIcon } from 'lucide-react';
+import {
+  CheckCircleIcon,
+  ImageIcon,
+  PlusIcon,
+  TrashIcon,
+  UploadIcon,
+  XCircleIcon,
+  XIcon,
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useCallback, useRef, useState } from "react";
+import type { BulkProductResult } from "@/app/lib/actions";
+import { bulkCreateProducts } from "@/app/lib/actions";
+import { AVAILABLE_SIZES } from "@/app/lib/constants";
+import type { LeafCategory } from "@/app/lib/definitions";
 
 type ProductRow = {
   id: string;
@@ -34,23 +42,23 @@ type ProductRow = {
 
 const createEmptyProduct = (): ProductRow => ({
   id: crypto.randomUUID(),
-  name: '',
-  description: '',
-  price: '',
-  categoryId: '',
-  stock: '10',
+  name: "",
+  description: "",
+  price: "",
+  categoryId: "",
+  stock: "10",
   isOnSale: false,
   isFeatured: false,
   isCombo: false,
-  salePrice: '',
-  salePercentage: '',
+  salePrice: "",
+  salePercentage: "",
   imageFileNames: [],
-  sizeChartFileName: '',
+  sizeChartFileName: "",
   sizes: [],
-  variantColorName: '',
-  variantHexCode: '',
-  variantPrice: '',
-  variantStock: '',
+  variantColorName: "",
+  variantHexCode: "",
+  variantPrice: "",
+  variantStock: "",
   variantSizes: [],
 });
 
@@ -59,12 +67,14 @@ interface BulkProductFormProps {
 }
 
 export default function BulkProductForm({ categories }: BulkProductFormProps) {
-  const [products, setProducts] = useState<ProductRow[]>([createEmptyProduct()]);
+  const [products, setProducts] = useState<ProductRow[]>([
+    createEmptyProduct(),
+  ]);
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [results, setResults] = useState<BulkProductResult[] | null>(null);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addProductRow = () => {
@@ -73,65 +83,82 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
 
   const removeProductRow = (id: string) => {
     if (products.length > 1) {
-      setProducts(products.filter(p => p.id !== id));
+      setProducts(products.filter((p) => p.id !== id));
     }
   };
 
-  const updateProduct = (id: string, field: keyof ProductRow, value: string | boolean | string[]) => {
-    setProducts(products.map(p => {
-      if (p.id === id) {
-        return { ...p, [field]: value } as ProductRow;
-      }
-      return p;
-    }));
+  const updateProduct = (
+    id: string,
+    field: keyof ProductRow,
+    value: string | boolean | string[],
+  ) => {
+    setProducts(
+      products.map((p) => {
+        if (p.id === id) {
+          return { ...p, [field]: value } as ProductRow;
+        }
+        return p;
+      }),
+    );
   };
 
   const toggleImageSelection = (productId: string, fileName: string) => {
-    setProducts(products.map(p => {
-      if (p.id === productId) {
-        const current = p.imageFileNames;
-        const updated = current.includes(fileName)
-          ? current.filter(name => name !== fileName)
-          : [...current, fileName];
-        return { ...p, imageFileNames: updated };
-      }
-      return p;
-    }));
+    setProducts(
+      products.map((p) => {
+        if (p.id === productId) {
+          const current = p.imageFileNames;
+          const updated = current.includes(fileName)
+            ? current.filter((name) => name !== fileName)
+            : [...current, fileName];
+          return { ...p, imageFileNames: updated };
+        }
+        return p;
+      }),
+    );
   };
 
   const toggleProductSize = (productId: string, size: string) => {
-    setProducts(products.map(p => {
-      if (p.id === productId) {
-        const current = p.sizes;
-        const updated = current.includes(size)
-          ? current.filter(s => s !== size)
-          : [...current, size];
-        return { ...p, sizes: updated };
-      }
-      return p;
-    }));
+    setProducts(
+      products.map((p) => {
+        if (p.id === productId) {
+          const current = p.sizes;
+          const updated = current.includes(size)
+            ? current.filter((s) => s !== size)
+            : [...current, size];
+          return { ...p, sizes: updated };
+        }
+        return p;
+      }),
+    );
   };
 
   const toggleVariantSize = (productId: string, size: string) => {
-    setProducts(products.map(p => {
-      if (p.id === productId) {
-        const current = p.variantSizes;
-        const updated = current.includes(size)
-          ? current.filter(s => s !== size)
-          : [...current, size];
-        return { ...p, variantSizes: updated };
-      }
-      return p;
-    }));
+    setProducts(
+      products.map((p) => {
+        if (p.id === productId) {
+          const current = p.variantSizes;
+          const updated = current.includes(size)
+            ? current.filter((s) => s !== size)
+            : [...current, size];
+          return { ...p, variantSizes: updated };
+        }
+        return p;
+      }),
+    );
   };
 
   const toggleSizeChartSelection = (productId: string, fileName: string) => {
-    setProducts(products.map(p => {
-      if (p.id === productId) {
-        return { ...p, sizeChartFileName: p.sizeChartFileName === fileName ? '' : fileName };
-      }
-      return p;
-    }));
+    setProducts(
+      products.map((p) => {
+        if (p.id === productId) {
+          return {
+            ...p,
+            sizeChartFileName: p.sizeChartFileName === fileName ? "" : fileName,
+          };
+        }
+        return p;
+      }),
+    );
   };
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -147,23 +174,32 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-    setUploadedImages(prev => [...prev, ...files]);
+    const files = Array.from(e.dataTransfer.files).filter((f) =>
+      f.type.startsWith("image/"),
+    );
+    setUploadedImages((prev) => [...prev, ...files]);
   }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const files = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
-      setUploadedImages(prev => [...prev, ...files]);
+      const files = Array.from(e.target.files).filter((f) =>
+        f.type.startsWith("image/"),
+      );
+      setUploadedImages((prev) => [...prev, ...files]);
     }
   };
 
   const removeImage = (index: number) => {
-    setUploadedImages(prev => prev.filter((_, i) => i !== index));
+    setUploadedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const isProductValid = (p: ProductRow) => {
-    const hasRequiredFields = p.name && p.description && p.price && p.categoryId && p.imageFileNames.length > 0;
+    const hasRequiredFields =
+      p.name &&
+      p.description &&
+      p.price &&
+      p.categoryId &&
+      p.imageFileNames.length > 0;
     const hasSalePriceIfOnSale = !p.isOnSale || (p.isOnSale && p.salePrice);
     return hasRequiredFields && hasSalePriceIfOnSale;
   };
@@ -172,12 +208,14 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
     e.preventDefault();
     setIsSubmitting(true);
     setResults(null);
-    setMessage('');
+    setMessage("");
 
     // Validate products
-    const invalidProducts = products.filter(p => !isProductValid(p));
+    const invalidProducts = products.filter((p) => !isProductValid(p));
     if (invalidProducts.length > 0) {
-      setMessage(`Please fill in all required fields and select at least one image for all products. ${invalidProducts.length} product(s) have missing data.`);
+      setMessage(
+        `Please fill in all required fields and select at least one image for all products. ${invalidProducts.length} product(s) have missing data.`,
+      );
       setIsSubmitting(false);
       return;
     }
@@ -186,7 +224,7 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
     const formData = new FormData();
 
     // Add products as JSON
-    const productsData = products.map(p => ({
+    const productsData = products.map((p) => ({
       name: p.name,
       description: p.description,
       price: parseFloat(p.price),
@@ -195,20 +233,24 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
       isOnSale: p.isOnSale,
       isFeatured: p.isFeatured,
       isCombo: p.isCombo,
-      salePrice: p.isOnSale && p.salePrice ? parseFloat(p.salePrice) : undefined,
-      salePercentage: p.isOnSale && p.salePercentage ? parseInt(p.salePercentage) : undefined,
+      salePrice:
+        p.isOnSale && p.salePrice ? parseFloat(p.salePrice) : undefined,
+      salePercentage:
+        p.isOnSale && p.salePercentage ? parseInt(p.salePercentage) : undefined,
       imageFileNames: p.imageFileNames,
       sizeChartFileName: p.sizeChartFileName,
       sizes: p.sizes,
-      variant: p.variantColorName ? {
-        colorName: p.variantColorName,
-        hexCode: p.variantHexCode,
-        price: p.variantPrice ? parseFloat(p.variantPrice) : undefined,
-        stock: p.variantStock ? parseInt(p.variantStock) : undefined,
-        sizes: p.variantSizes,
-      } : undefined,
+      variant: p.variantColorName
+        ? {
+            colorName: p.variantColorName,
+            hexCode: p.variantHexCode,
+            price: p.variantPrice ? parseFloat(p.variantPrice) : undefined,
+            stock: p.variantStock ? parseInt(p.variantStock) : undefined,
+            sizes: p.variantSizes,
+          }
+        : undefined,
     }));
-    formData.append('products', JSON.stringify(productsData));
+    formData.append("products", JSON.stringify(productsData));
 
     // Add images
     uploadedImages.forEach((file, index) => {
@@ -226,7 +268,7 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
         setUploadedImages([]);
       }
     } catch {
-      setMessage('An unexpected error occurred. Please try again.');
+      setMessage("An unexpected error occurred. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -240,7 +282,7 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
           <UploadIcon className="w-5 h-5" />
           Step 1: Upload Images
         </h2>
-        
+
         <button
           type="button"
           onDragOver={handleDragOver}
@@ -249,9 +291,10 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
           onClick={() => fileInputRef.current?.click()}
           className={`
             w-full cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-all
-            ${isDragging 
-              ? 'border-blue-500 bg-blue-50' 
-              : 'border-gray-300 hover:border-gray-400 bg-gray-50 hover:bg-gray-100'
+            ${
+              isDragging
+                ? "border-blue-500 bg-blue-50"
+                : "border-gray-300 hover:border-gray-400 bg-gray-50 hover:bg-gray-100"
             }
           `}
         >
@@ -259,9 +302,7 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
           <p className="text-gray-600 font-medium">
             Drag & drop images here, or click to select
           </p>
-          <p className="text-sm text-gray-400 mt-1">
-            Supports JPG, PNG, WebP
-          </p>
+          <p className="text-sm text-gray-400 mt-1">Supports JPG, PNG, WebP</p>
           <input
             ref={fileInputRef}
             type="file"
@@ -333,30 +374,61 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[140px]">Name *</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[180px]">Description *</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[80px]">Price *</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[180px]">Category *</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[60px]">Stock</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[60px]">Featured</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[60px]">Combo</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[80px]">Sale</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[200px]">Sizes</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[120px]">Size Chart</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[160px]">Variant Color</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[160px]">Variant Sizes</th>
-                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[160px]">Images *</th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[140px]">
+                  Name *
+                </th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[180px]">
+                  Description *
+                </th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[80px]">
+                  Price *
+                </th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[180px]">
+                  Category *
+                </th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[60px]">
+                  Stock
+                </th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[60px]">
+                  Featured
+                </th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[60px]">
+                  Combo
+                </th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[80px]">
+                  Sale
+                </th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[200px]">
+                  Sizes
+                </th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[120px]">
+                  Size Chart
+                </th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[160px]">
+                  Variant Color
+                </th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[160px]">
+                  Variant Sizes
+                </th>
+                <th className="text-left py-3 px-2 font-medium text-gray-600 min-w-[160px]">
+                  Images *
+                </th>
                 <th className="py-3 px-2"></th>
               </tr>
             </thead>
             <tbody>
               {products.map((product) => (
-                <tr key={product.id} className="border-b border-gray-100 hover:bg-gray-50">
+                <tr
+                  key={product.id}
+                  className="border-b border-gray-100 hover:bg-gray-50"
+                >
                   <td className="py-2 px-2 align-top">
                     <input
                       type="text"
                       value={product.name}
-                      onChange={(e) => updateProduct(product.id, 'name', e.target.value)}
+                      onChange={(e) =>
+                        updateProduct(product.id, "name", e.target.value)
+                      }
                       placeholder="Product name"
                       className="w-full min-w-[140px] px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -364,7 +436,9 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                   <td className="py-2 px-2 align-top">
                     <textarea
                       value={product.description}
-                      onChange={(e) => updateProduct(product.id, 'description', e.target.value)}
+                      onChange={(e) =>
+                        updateProduct(product.id, "description", e.target.value)
+                      }
                       placeholder="Description"
                       rows={2}
                       className="w-full min-w-[180px] px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
@@ -375,7 +449,9 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                       type="number"
                       step="0.01"
                       value={product.price}
-                      onChange={(e) => updateProduct(product.id, 'price', e.target.value)}
+                      onChange={(e) =>
+                        updateProduct(product.id, "price", e.target.value)
+                      }
                       placeholder="0.00"
                       className="w-full min-w-[80px] px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -383,11 +459,13 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                   <td className="py-2 px-2 align-top">
                     <select
                       value={product.categoryId}
-                      onChange={(e) => updateProduct(product.id, 'categoryId', e.target.value)}
+                      onChange={(e) =>
+                        updateProduct(product.id, "categoryId", e.target.value)
+                      }
                       className="w-full min-w-[180px] px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select category...</option>
-                      {categories.map(cat => (
+                      {categories.map((cat) => (
                         <option key={cat.id} value={cat.id}>
                           {cat.fullPath}
                         </option>
@@ -398,7 +476,9 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                     <input
                       type="number"
                       value={product.stock}
-                      onChange={(e) => updateProduct(product.id, 'stock', e.target.value)}
+                      onChange={(e) =>
+                        updateProduct(product.id, "stock", e.target.value)
+                      }
                       placeholder="0"
                       className="w-full min-w-[60px] px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -407,7 +487,13 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                     <input
                       type="checkbox"
                       checked={product.isFeatured}
-                      onChange={(e) => updateProduct(product.id, 'isFeatured', e.target.checked)}
+                      onChange={(e) =>
+                        updateProduct(
+                          product.id,
+                          "isFeatured",
+                          e.target.checked,
+                        )
+                      }
                       className="rounded border-gray-300"
                     />
                   </td>
@@ -415,7 +501,9 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                     <input
                       type="checkbox"
                       checked={product.isCombo}
-                      onChange={(e) => updateProduct(product.id, 'isCombo', e.target.checked)}
+                      onChange={(e) =>
+                        updateProduct(product.id, "isCombo", e.target.checked)
+                      }
                       className="rounded border-gray-300"
                       title="Show on Combo Page"
                     />
@@ -426,7 +514,13 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                         <input
                           type="checkbox"
                           checked={product.isOnSale}
-                          onChange={(e) => updateProduct(product.id, 'isOnSale', e.target.checked)}
+                          onChange={(e) =>
+                            updateProduct(
+                              product.id,
+                              "isOnSale",
+                              e.target.checked,
+                            )
+                          }
                           className="rounded border-gray-300"
                         />
                         <span className="text-xs">Sale</span>
@@ -438,7 +532,13 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                             min="0"
                             max="100"
                             value={product.salePercentage}
-                            onChange={(e) => updateProduct(product.id, 'salePercentage', e.target.value)}
+                            onChange={(e) =>
+                              updateProduct(
+                                product.id,
+                                "salePercentage",
+                                e.target.value,
+                              )
+                            }
                             placeholder="% Off"
                             className="w-full min-w-[70px] px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
@@ -446,7 +546,13 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                             type="number"
                             step="0.01"
                             value={product.salePrice}
-                            onChange={(e) => updateProduct(product.id, 'salePrice', e.target.value)}
+                            onChange={(e) =>
+                              updateProduct(
+                                product.id,
+                                "salePrice",
+                                e.target.value,
+                              )
+                            }
                             placeholder="Fixed $"
                             className="w-full min-w-[70px] px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
@@ -464,8 +570,8 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                             onClick={() => toggleProductSize(product.id, size)}
                             className={`px-2 py-0.5 text-[10px] rounded border transition-colors ${
                               product.sizes.includes(size)
-                                ? 'bg-blue-500 text-white border-blue-500'
-                                : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                                ? "bg-blue-500 text-white border-blue-500"
+                                : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"
                             }`}
                           >
                             {size}
@@ -473,18 +579,24 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                         ))}
                       </div>
                       {product.sizes.length > 0 && (
-                        <p className="text-[10px] text-blue-600 mt-1">{product.sizes.length} selected</p>
+                        <p className="text-[10px] text-blue-600 mt-1">
+                          {product.sizes.length} selected
+                        </p>
                       )}
                     </div>
                   </td>
                   <td className="py-2 px-2 align-top">
                     <div className="min-w-[120px]">
                       {uploadedImages.length === 0 ? (
-                        <p className="text-xs text-gray-400 italic">Upload images first</p>
+                        <p className="text-xs text-gray-400 italic">
+                          Upload images first
+                        </p>
                       ) : (
                         <select
                           value={product.sizeChartFileName}
-                          onChange={(e) => toggleSizeChartSelection(product.id, e.target.value)}
+                          onChange={(e) =>
+                            toggleSizeChartSelection(product.id, e.target.value)
+                          }
                           className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">None</option>
@@ -502,21 +614,39 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                       <input
                         type="text"
                         value={product.variantColorName}
-                        onChange={(e) => updateProduct(product.id, 'variantColorName', e.target.value)}
+                        onChange={(e) =>
+                          updateProduct(
+                            product.id,
+                            "variantColorName",
+                            e.target.value,
+                          )
+                        }
                         placeholder="Color name (e.g., Ruby Red)"
                         className="w-full px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       <div className="flex items-center gap-2">
                         <input
                           type="color"
-                          value={product.variantHexCode || '#000000'}
-                          onChange={(e) => updateProduct(product.id, 'variantHexCode', e.target.value)}
+                          value={product.variantHexCode || "#000000"}
+                          onChange={(e) =>
+                            updateProduct(
+                              product.id,
+                              "variantHexCode",
+                              e.target.value,
+                            )
+                          }
                           className="w-6 h-6 rounded border-0 p-0 overflow-hidden cursor-pointer"
                         />
                         <input
                           type="text"
                           value={product.variantHexCode}
-                          onChange={(e) => updateProduct(product.id, 'variantHexCode', e.target.value)}
+                          onChange={(e) =>
+                            updateProduct(
+                              product.id,
+                              "variantHexCode",
+                              e.target.value,
+                            )
+                          }
                           placeholder="#FF0000"
                           className="flex-1 px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -525,14 +655,26 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                         type="number"
                         step="0.01"
                         value={product.variantPrice}
-                        onChange={(e) => updateProduct(product.id, 'variantPrice', e.target.value)}
+                        onChange={(e) =>
+                          updateProduct(
+                            product.id,
+                            "variantPrice",
+                            e.target.value,
+                          )
+                        }
                         placeholder="Variant price (optional)"
                         className="w-full px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       <input
                         type="number"
                         value={product.variantStock}
-                        onChange={(e) => updateProduct(product.id, 'variantStock', e.target.value)}
+                        onChange={(e) =>
+                          updateProduct(
+                            product.id,
+                            "variantStock",
+                            e.target.value,
+                          )
+                        }
                         placeholder="Variant stock"
                         className="w-full px-2 py-1 border border-gray-200 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
@@ -548,8 +690,8 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                             onClick={() => toggleVariantSize(product.id, size)}
                             className={`px-2 py-0.5 text-[10px] rounded border transition-colors ${
                               product.variantSizes.includes(size)
-                                ? 'bg-purple-500 text-white border-purple-500'
-                                : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300'
+                                ? "bg-purple-500 text-white border-purple-500"
+                                : "bg-white text-gray-600 border-gray-200 hover:border-purple-300"
                             }`}
                           >
                             {size}
@@ -557,25 +699,38 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                         ))}
                       </div>
                       {product.variantSizes.length > 0 && (
-                        <p className="text-[10px] text-purple-600 mt-1">{product.variantSizes.length} selected</p>
+                        <p className="text-[10px] text-purple-600 mt-1">
+                          {product.variantSizes.length} selected
+                        </p>
                       )}
                     </div>
                   </td>
                   <td className="py-2 px-2 align-top">
                     <div className="min-w-[160px]">
                       {uploadedImages.length === 0 ? (
-                        <p className="text-xs text-gray-400 italic">Upload images first</p>
+                        <p className="text-xs text-gray-400 italic">
+                          Upload images first
+                        </p>
                       ) : (
                         <div className="max-h-[100px] overflow-y-auto border border-gray-200 rounded-md p-1 bg-white space-y-1">
                           {uploadedImages.map((file) => (
-                            <label key={file.name} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer group">
+                            <label
+                              key={file.name}
+                              className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer group"
+                            >
                               <input
                                 type="checkbox"
-                                checked={product.imageFileNames.includes(file.name)}
-                                onChange={() => toggleImageSelection(product.id, file.name)}
+                                checked={product.imageFileNames.includes(
+                                  file.name,
+                                )}
+                                onChange={() =>
+                                  toggleImageSelection(product.id, file.name)
+                                }
                                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-3 w-3"
                               />
-                              <span className={`text-[11px] truncate ${product.imageFileNames.includes(file.name) ? 'text-blue-600 font-medium' : 'text-gray-600'}`}>
+                              <span
+                                className={`text-[11px] truncate ${product.imageFileNames.includes(file.name) ? "text-blue-600 font-medium" : "text-gray-600"}`}
+                              >
                                 {file.name}
                               </span>
                             </label>
@@ -607,7 +762,8 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
         </div>
 
         <p className="text-xs text-gray-500 mt-3">
-          * Required fields. Upload images first, then select them from the dropdown for each product.
+          * Required fields. Upload images first, then select them from the
+          dropdown for each product.
         </p>
       </div>
 
@@ -620,7 +776,7 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
               <div
                 key={result.name}
                 className={`flex items-center gap-3 p-3 rounded-lg ${
-                  result.success ? 'bg-green-50' : 'bg-red-50'
+                  result.success ? "bg-green-50" : "bg-red-50"
                 }`}
               >
                 {result.success ? (
@@ -629,7 +785,9 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
                   <XCircleIcon className="w-5 h-5 text-red-600 shrink-0" />
                 )}
                 <div>
-                  <p className={`font-medium ${result.success ? 'text-green-800' : 'text-red-800'}`}>
+                  <p
+                    className={`font-medium ${result.success ? "text-green-800" : "text-red-800"}`}
+                  >
                     {result.name}
                   </p>
                   {result.error && (
@@ -659,19 +817,39 @@ export default function BulkProductForm({ categories }: BulkProductFormProps) {
         </Link>
         <button
           type="submit"
-          disabled={isSubmitting || products.length === 0 || uploadedImages.length === 0}
+          disabled={
+            isSubmitting || products.length === 0 || uploadedImages.length === 0
+          }
           className="flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-6 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? (
             <>
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              <svg
+                className="animate-spin h-4 w-4"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
               </svg>
               Creating...
             </>
           ) : (
-            <>Create {products.length} Product{products.length !== 1 ? 's' : ''}</>
+            <>
+              Create {products.length} Product{products.length !== 1 ? "s" : ""}
+            </>
           )}
         </button>
       </div>

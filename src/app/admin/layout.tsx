@@ -1,13 +1,19 @@
-import { auth } from '@/lib/auth';
-import { headers } from 'next/headers';
-import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { Package, ShoppingCart, LayoutDashboard, FolderTree, Settings } from 'lucide-react';
-import { LogoutButton } from './logout-button';
-import type { Metadata } from 'next';
+import {
+  FolderTree,
+  LayoutDashboard,
+  Package,
+  Settings,
+  ShoppingCart,
+} from "lucide-react";
+import type { Metadata } from "next";
+import { headers } from "next/headers";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { LogoutButton } from "./logout-button";
 
 export const metadata: Metadata = {
-  title: 'Admin Dashboard',
+  title: "Admin Dashboard",
   robots: {
     index: false,
     follow: false,
@@ -24,7 +30,7 @@ export default async function AdminLayout({
   });
 
   if (!session?.user) {
-    redirect('/login');
+    redirect("/login");
   }
 
   return (
@@ -37,7 +43,9 @@ export default async function AdminLayout({
             <h1 className="font-display text-xl text-primary-foreground">
               Royals and Radiant
             </h1>
-            <span className="text-xs text-background/50">by Upasana and Foram</span>
+            <span className="text-xs text-background/50">
+              by Upasana and Foram
+            </span>
             <span className="block text-xs tracking-wider text-background/60 uppercase mt-1">
               Admin Dashboard
             </span>
@@ -51,29 +59,29 @@ export default async function AdminLayout({
 
           {/* Navigation */}
           <nav className="space-y-1">
-            <Link 
-              href="/admin" 
+            <Link
+              href="/admin"
               className="flex items-center gap-3 px-3 py-2.5 rounded-md text-background/80 hover:bg-background/10 hover:text-background transition-colors"
             >
               <Package className="h-5 w-5" />
               Products
             </Link>
-            <Link 
-              href="/admin/categories" 
+            <Link
+              href="/admin/categories"
               className="flex items-center gap-3 px-3 py-2.5 rounded-md text-background/80 hover:bg-background/10 hover:text-background transition-colors"
             >
               <FolderTree className="h-5 w-5" />
               Categories
             </Link>
-            <Link 
-              href="/admin/orders" 
+            <Link
+              href="/admin/orders"
               className="flex items-center gap-3 px-3 py-2.5 rounded-md text-background/80 hover:bg-background/10 hover:text-background transition-colors"
             >
               <ShoppingCart className="h-5 w-5" />
               Orders
             </Link>
-            <Link 
-              href="/admin/settings" 
+            <Link
+              href="/admin/settings"
               className="flex items-center gap-3 px-3 py-2.5 rounded-md text-background/80 hover:bg-background/10 hover:text-background transition-colors"
             >
               <Settings className="h-5 w-5" />
@@ -85,8 +93,8 @@ export default async function AdminLayout({
         {/* Sign Out - Fixed at bottom */}
         <div className="mt-auto p-6 border-t border-background/10">
           <LogoutButton />
-          <Link 
-            href="/" 
+          <Link
+            href="/"
             className="flex items-center gap-3 px-3 py-2.5 mt-2 rounded-md text-background/60 hover:bg-background/10 hover:text-background transition-colors"
           >
             <LayoutDashboard className="h-5 w-5" />
@@ -97,9 +105,7 @@ export default async function AdminLayout({
 
       {/* Main Content */}
       <main className="flex-1 bg-background overflow-y-auto">
-        <div className="p-6 md:p-8 lg:p-12">
-          {children}
-        </div>
+        <div className="p-6 md:p-8 lg:p-12">{children}</div>
       </main>
     </div>
   );

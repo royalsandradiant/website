@@ -1,11 +1,15 @@
-'use client';
+"use client";
 
-import { useActionState, useState, useEffect } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { createCategory, updateCategory } from '@/app/lib/actions';
-import type { Category, LeafCategory, CategoryState } from '@/app/lib/definitions';
-import { slugify } from '@/app/lib/utils';
+import Image from "next/image";
+import Link from "next/link";
+import { useActionState, useEffect, useState } from "react";
+import { createCategory, updateCategory } from "@/app/lib/actions";
+import type {
+  Category,
+  CategoryState,
+  LeafCategory,
+} from "@/app/lib/definitions";
+import { slugify } from "@/app/lib/utils";
 
 interface CategoryFormProps {
   category?: Category | null;
@@ -13,26 +17,32 @@ interface CategoryFormProps {
   defaultParentId?: string | null;
 }
 
-export default function CategoryForm({ category, allCategories, defaultParentId }: CategoryFormProps) {
-  const initialState: CategoryState = { message: '', errors: {} };
-  const action = category 
-    ? updateCategory.bind(null, category.id) 
+export default function CategoryForm({
+  category,
+  allCategories,
+  defaultParentId,
+}: CategoryFormProps) {
+  const initialState: CategoryState = { message: "", errors: {} };
+  const action = category
+    ? updateCategory.bind(null, category.id)
     : createCategory;
   const [state, dispatch] = useActionState(action, initialState);
-  
-  const [name, setName] = useState(category?.name || '');
-  const [slug, setSlug] = useState(category?.slug || '');
+
+  const [name, setName] = useState(category?.name || "");
+  const [slug, setSlug] = useState(category?.slug || "");
   const [autoSlug, setAutoSlug] = useState(!category);
   const [isVisible, setIsVisible] = useState(category?.isVisible ?? true);
-  const [currentImage, setCurrentImage] = useState<string | null>(category?.imageUrl || null);
+  const [currentImage, setCurrentImage] = useState<string | null>(
+    category?.imageUrl || null,
+  );
 
   // Filter out the current category and its descendants from parent options
-  const availableParents = allCategories.filter(c => {
+  const availableParents = allCategories.filter((c) => {
     if (!category) return true;
     // Can't be its own parent
     if (c.id === category.id) return false;
     // Can't be a descendant of itself
-    if (c.slugPath.startsWith(category.slugPath + '/')) return false;
+    if (c.slugPath.startsWith(category.slugPath + "/")) return false;
     return true;
   });
 
@@ -122,7 +132,7 @@ export default function CategoryForm({ category, allCategories, defaultParentId 
           <select
             id="parentId"
             name="parentId"
-            defaultValue={category?.parentId || defaultParentId || ''}
+            defaultValue={category?.parentId || defaultParentId || ""}
             className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2"
           >
             <option value="">None (Top-level category)</option>
@@ -143,13 +153,16 @@ export default function CategoryForm({ category, allCategories, defaultParentId 
 
         {/* Description */}
         <div className="mb-4">
-          <label htmlFor="description" className="mb-2 block text-sm font-medium">
+          <label
+            htmlFor="description"
+            className="mb-2 block text-sm font-medium"
+          >
             Description
           </label>
           <textarea
             id="description"
             name="description"
-            defaultValue={category?.description || ''}
+            defaultValue={category?.description || ""}
             rows={3}
             placeholder="Optional description shown on category pages"
             className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
@@ -215,7 +228,8 @@ export default function CategoryForm({ category, allCategories, defaultParentId 
             aria-describedby="sortOrder-error"
           />
           <p className="mt-1 text-xs text-gray-500">
-            Lower numbers appear first. Categories with same order are sorted alphabetically.
+            Lower numbers appear first. Categories with same order are sorted
+            alphabetically.
           </p>
           <div id="sortOrder-error" aria-live="polite" aria-atomic="true">
             {state.errors?.sortOrder?.map((error: string) => (
@@ -239,7 +253,8 @@ export default function CategoryForm({ category, allCategories, defaultParentId 
             <span className="text-sm font-medium">Visible on storefront</span>
           </label>
           <p className="mt-1 text-xs text-gray-500 ml-6">
-            Hidden categories won't appear in navigation but products can still be assigned.
+            Hidden categories won't appear in navigation but products can still
+            be assigned.
           </p>
         </div>
       </div>
@@ -263,7 +278,7 @@ export default function CategoryForm({ category, allCategories, defaultParentId 
           type="submit"
           className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
         >
-          {category ? 'Update Category' : 'Create Category'}
+          {category ? "Update Category" : "Create Category"}
         </button>
       </div>
     </form>

@@ -1,4 +1,8 @@
-import type { Product, ProductWithCategory, ShippingCategory } from "@/app/lib/definitions";
+import type {
+  Product,
+  ProductWithCategory,
+  ShippingCategory,
+} from "@/app/lib/definitions";
 
 const CLOTHES_KEYWORDS = [
   "cloth",
@@ -66,7 +70,10 @@ export function inferShippingCategoryFromText(
 }
 
 type ProductForShipping = Pick<Product, "category" | "subcategory"> & {
-  categoryRef?: Pick<NonNullable<ProductWithCategory["categoryRef"]>, "name" | "slugPath"> | null;
+  categoryRef?: Pick<
+    NonNullable<ProductWithCategory["categoryRef"]>,
+    "name" | "slugPath"
+  > | null;
 };
 
 export function inferShippingCategoryFromProduct(

@@ -1,29 +1,41 @@
-'use server';
+"use server";
 
-import { prisma } from './prisma';
-import { z } from 'zod';
-import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
-import { put, del } from '@vercel/blob';
-import { Resend } from 'resend';
-import Stripe from 'stripe';
-import type { Prisma } from '@prisma/client';
-
-import type { State, CategoryState, ShippingCategory, HeroViewport } from './definitions';
-import { ImageUploadValidationError, prepareWebpUploadFromFile } from './image-upload';
-import { slugify, buildSlugPath, getBaseUrl } from './utils';
+import type { Prisma } from "@prisma/client";
+import { del, put } from "@vercel/blob";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { Resend } from "resend";
+import Stripe from "stripe";
+import { z } from "zod";
+import type {
+  CategoryState,
+  HeroViewport,
+  ShippingCategory,
+  State,
+} from "./definitions";
+import {
+  ImageUploadValidationError,
+  prepareWebpUploadFromFile,
+} from "./image-upload";
+import { prisma } from "./prisma";
+import { buildTrackingLink } from "./shipping-tracking";
+import { buildSlugPath, getBaseUrl, slugify } from "./utils";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-12-15.clover',
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  apiVersion: "2025-12-15.clover",
 });
 
-function normalizeShippingCategoryInput(category: string | null | undefined): ShippingCategory {
-  return category === 'clothes' ? 'clothes' : 'jewelry';
+function normalizeShippingCategoryInput(
+  category: string | null | undefined,
+): ShippingCategory {
+  return category === "clothes" ? "clothes" : "jewelry";
 }
 
-function normalizeHeroViewportInput(viewport: string | null | undefined): HeroViewport {
-  return viewport === 'mobile' ? 'mobile' : 'desktop';
+function normalizeHeroViewportInput(
+  viewport: string | null | undefined,
+): HeroViewport {
+  return viewport === "mobile" ? "mobile" : "desktop";
 }
 
 // ===================
@@ -32,8 +44,8 @@ function normalizeHeroViewportInput(viewport: string | null | undefined): HeroVi
 
 const CategorySchema = z.object({
   id: z.string(),
-  name: z.string().min(1, 'Name is required'),
-  slug: z.string().min(1, 'Slug is required'),
+  name: z.string().min(1, "Name is required"),
+  slug: z.string().min(1, "Slug is required"),
   description: z.string().optional(),
   parentId: z.string().nullable().optional(),
   isVisible: z.boolean().default(true),
@@ -48,16 +60,19 @@ const UpdateCategory = CategorySchema.omit({ id: true });
 // ===================
 
 async function revalidateCategoryPaths() {
-  revalidatePath('/');
-  revalidatePath('/admin');
-  revalidatePath('/admin/categories');
-  revalidatePath('/products/category', 'layout');
+  revalidatePath("/");
+  revalidatePath("/admin");
+  revalidatePath("/admin/categories");
+  revalidatePath("/products/category", "layout");
 }
 
 async function uploadImageAsWebp(file: File, folder?: string): Promise<string> {
-  const { fileName, buffer, contentType } = await prepareWebpUploadFromFile(file, { folder });
+  const { fileName, buffer, contentType } = await prepareWebpUploadFromFile(
+    file,
+    { folder },
+  );
   const blob = await put(fileName, buffer, {
-    access: 'public',
+    access: "public",
     contentType,
   });
   return blob.url;
@@ -68,27 +83,35 @@ async function uploadImageAsWebp(file: File, folder?: string): Promise<string> {
  * Accepts a single URL, array of URLs, or null/undefined (no-op).
  * Silently ignores failures (e.g., blob already deleted).
  */
-async function deleteBlobs(urls: string | string[] | null | undefined): Promise<void> {
+async function deleteBlobs(
+  urls: string | string[] | null | undefined,
+): Promise<void> {
   if (!urls) return;
   const urlsToDelete = Array.isArray(urls) ? urls : [urls];
   // Filter out empty strings
-  const validUrls = urlsToDelete.filter((url): url is string => !!url && url.length > 0);
+  const validUrls = urlsToDelete.filter(
+    (url): url is string => !!url && url.length > 0,
+  );
   if (validUrls.length === 0) return;
   try {
     await del(validUrls);
   } catch (error) {
     // Silently ignore errors - blob may already be deleted
-    console.warn('Failed to delete some blobs:', error);
+    console.warn("Failed to delete some blobs:", error);
   }
 }
 
-export async function createCategory(_prevState: CategoryState, formData: FormData): Promise<CategoryState> {
-  const parentId = formData.get('parentId') as string | null;
-  const isVisibleValue = formData.get('isVisible') === 'on' || formData.get('isVisible') === 'true';
-  
+export async function createCategory(
+  _prevState: CategoryState,
+  formData: FormData,
+): Promise<CategoryState> {
+  const parentId = formData.get("parentId") as string | null;
+  const isVisibleValue =
+    formData.get("isVisible") === "on" || formData.get("isVisible") === "true";
+
   // Auto-generate slug from name if not provided
-  const nameValue = formData.get('name') as string;
-  let slugValue = formData.get('slug') as string;
+  const nameValue = formData.get("name") as string;
+  let slugValue = formData.get("slug") as string;
   if (!slugValue && nameValue) {
     slugValue = slugify(nameValue);
   }
@@ -96,20 +119,21 @@ export async function createCategory(_prevState: CategoryState, formData: FormDa
   const validatedFields = CreateCategory.safeParse({
     name: nameValue,
     slug: slugValue,
-    description: formData.get('description') || undefined,
+    description: formData.get("description") || undefined,
     parentId: parentId || null,
     isVisible: isVisibleValue,
-    sortOrder: formData.get('sortOrder') || 0,
+    sortOrder: formData.get("sortOrder") || 0,
   });
 
   if (!validatedFields.success) {
     return {
       errors: validatedFields.error.flatten().fieldErrors,
-      message: 'Missing Fields. Failed to Create Category.',
+      message: "Missing Fields. Failed to Create Category.",
     };
   }
 
-  const { name, slug, description, isVisible, sortOrder } = validatedFields.data;
+  const { name, slug, description, isVisible, sortOrder } =
+    validatedFields.data;
 
   // Get parent's slugPath if there's a parent
   let parentSlugPath: string | null = null;
@@ -119,7 +143,7 @@ export async function createCategory(_prevState: CategoryState, formData: FormDa
       select: { slugPath: true },
     });
     if (!parent) {
-      return { message: 'Parent category not found.' };
+      return { message: "Parent category not found." };
     }
     parentSlugPath = parent.slugPath;
   }
@@ -136,21 +160,26 @@ export async function createCategory(_prevState: CategoryState, formData: FormDa
 
   if (existingCategory) {
     return {
-      errors: { slug: ['A category with this slug already exists at this level.'] },
-      message: 'Duplicate slug.',
+      errors: {
+        slug: ["A category with this slug already exists at this level."],
+      },
+      message: "Duplicate slug.",
     };
   }
 
   // Handle image upload
   let imageUrl: string | null = null;
-  const imageFile = formData.get('image') as File | null;
+  const imageFile = formData.get("image") as File | null;
   if (imageFile && imageFile.size > 0) {
     try {
-      imageUrl = await uploadImageAsWebp(imageFile, 'categories');
+      imageUrl = await uploadImageAsWebp(imageFile, "categories");
     } catch (e) {
       console.error("Upload error", e);
       return {
-        message: e instanceof ImageUploadValidationError ? e.message : 'Image upload failed.',
+        message:
+          e instanceof ImageUploadValidationError
+            ? e.message
+            : "Image upload failed.",
       };
     }
   }
@@ -169,20 +198,25 @@ export async function createCategory(_prevState: CategoryState, formData: FormDa
       },
     });
   } catch (error) {
-    console.error('Database Error:', error);
-    return { message: 'Database Error: Failed to Create Category.' };
+    console.error("Database Error:", error);
+    return { message: "Database Error: Failed to Create Category." };
   }
 
   await revalidateCategoryPaths();
-  redirect('/admin/categories');
+  redirect("/admin/categories");
 }
 
-export async function updateCategory(id: string, _prevState: CategoryState, formData: FormData): Promise<CategoryState> {
-  const parentId = formData.get('parentId') as string | null;
-  const isVisibleValue = formData.get('isVisible') === 'on' || formData.get('isVisible') === 'true';
-  
-  const nameValue = formData.get('name') as string;
-  let slugValue = formData.get('slug') as string;
+export async function updateCategory(
+  id: string,
+  _prevState: CategoryState,
+  formData: FormData,
+): Promise<CategoryState> {
+  const parentId = formData.get("parentId") as string | null;
+  const isVisibleValue =
+    formData.get("isVisible") === "on" || formData.get("isVisible") === "true";
+
+  const nameValue = formData.get("name") as string;
+  let slugValue = formData.get("slug") as string;
   if (!slugValue && nameValue) {
     slugValue = slugify(nameValue);
   }
@@ -190,20 +224,21 @@ export async function updateCategory(id: string, _prevState: CategoryState, form
   const validatedFields = UpdateCategory.safeParse({
     name: nameValue,
     slug: slugValue,
-    description: formData.get('description') || undefined,
+    description: formData.get("description") || undefined,
     parentId: parentId || null,
     isVisible: isVisibleValue,
-    sortOrder: formData.get('sortOrder') || 0,
+    sortOrder: formData.get("sortOrder") || 0,
   });
 
   if (!validatedFields.success) {
     return {
       errors: validatedFields.error.flatten().fieldErrors,
-      message: 'Missing Fields. Failed to Update Category.',
+      message: "Missing Fields. Failed to Update Category.",
     };
   }
 
-  const { name, slug, description, isVisible, sortOrder } = validatedFields.data;
+  const { name, slug, description, isVisible, sortOrder } =
+    validatedFields.data;
 
   // Get current category
   const currentCategory = await prisma.category.findUnique({
@@ -212,12 +247,12 @@ export async function updateCategory(id: string, _prevState: CategoryState, form
   });
 
   if (!currentCategory) {
-    return { message: 'Category not found.' };
+    return { message: "Category not found." };
   }
 
   // Prevent setting self as parent
   if (parentId === id) {
-    return { message: 'A category cannot be its own parent.' };
+    return { message: "A category cannot be its own parent." };
   }
 
   // Get parent's slugPath
@@ -228,13 +263,13 @@ export async function updateCategory(id: string, _prevState: CategoryState, form
       select: { slugPath: true },
     });
     if (!parent) {
-      return { message: 'Parent category not found.' };
+      return { message: "Parent category not found." };
     }
     parentSlugPath = parent.slugPath;
-    
+
     // Prevent circular reference
     if (parent.slugPath.startsWith(currentCategory.slugPath)) {
-      return { message: 'Cannot move a category under its own descendant.' };
+      return { message: "Cannot move a category under its own descendant." };
     }
   }
 
@@ -252,21 +287,26 @@ export async function updateCategory(id: string, _prevState: CategoryState, form
 
   if (existingCategory) {
     return {
-      errors: { slug: ['A category with this slug already exists at this level.'] },
-      message: 'Duplicate slug.',
+      errors: {
+        slug: ["A category with this slug already exists at this level."],
+      },
+      message: "Duplicate slug.",
     };
   }
 
   // Handle image upload
   let imageUrl: string | undefined;
-  const imageFile = formData.get('image') as File | null;
+  const imageFile = formData.get("image") as File | null;
   if (imageFile && imageFile.size > 0) {
     try {
-      imageUrl = await uploadImageAsWebp(imageFile, 'categories');
+      imageUrl = await uploadImageAsWebp(imageFile, "categories");
     } catch (e) {
       console.error("Upload error", e);
       return {
-        message: e instanceof ImageUploadValidationError ? e.message : 'Image upload failed.',
+        message:
+          e instanceof ImageUploadValidationError
+            ? e.message
+            : "Image upload failed.",
       };
     }
   }
@@ -302,15 +342,17 @@ export async function updateCategory(id: string, _prevState: CategoryState, form
       }
     }
   } catch (error) {
-    console.error('Database Error:', error);
-    return { message: 'Database Error: Failed to Update Category.' };
+    console.error("Database Error:", error);
+    return { message: "Database Error: Failed to Update Category." };
   }
 
   await revalidateCategoryPaths();
-  redirect('/admin/categories');
+  redirect("/admin/categories");
 }
 
-export async function deleteCategory(id: string): Promise<{ success: boolean; message: string }> {
+export async function deleteCategory(
+  id: string,
+): Promise<{ success: boolean; message: string }> {
   try {
     // Check for children
     const childCount = await prisma.category.count({
@@ -320,7 +362,8 @@ export async function deleteCategory(id: string): Promise<{ success: boolean; me
     if (childCount > 0) {
       return {
         success: false,
-        message: 'Cannot delete a category that has subcategories. Move or delete them first.',
+        message:
+          "Cannot delete a category that has subcategories. Move or delete them first.",
       };
     }
 
@@ -350,15 +393,18 @@ export async function deleteCategory(id: string): Promise<{ success: boolean; me
     await deleteBlobs(category?.imageUrl);
 
     await revalidateCategoryPaths();
-    return { success: true, message: 'Category deleted successfully.' };
+    return { success: true, message: "Category deleted successfully." };
   } catch (error) {
-    console.error('Database Error:', error);
-    return { success: false, message: 'Database Error: Failed to Delete Category.' };
+    console.error("Database Error:", error);
+    return {
+      success: false,
+      message: "Database Error: Failed to Delete Category.",
+    };
   }
 }
 
 export async function reorderCategories(
-  orderedIds: { id: string; sortOrder: number }[]
+  orderedIds: { id: string; sortOrder: number }[],
 ): Promise<{ success: boolean; message: string }> {
   try {
     // Update all categories in a transaction
@@ -367,15 +413,18 @@ export async function reorderCategories(
         prisma.category.update({
           where: { id },
           data: { sortOrder },
-        })
-      )
+        }),
+      ),
     );
 
     await revalidateCategoryPaths();
-    return { success: true, message: 'Categories reordered successfully.' };
+    return { success: true, message: "Categories reordered successfully." };
   } catch (error) {
-    console.error('Database Error:', error);
-    return { success: false, message: 'Database Error: Failed to reorder categories.' };
+    console.error("Database Error:", error);
+    return {
+      success: false,
+      message: "Database Error: Failed to reorder categories.",
+    };
   }
 }
 
@@ -385,20 +434,26 @@ export async function reorderCategories(
 
 const ProductSchema = z.object({
   id: z.string(),
-  name: z.string().min(1, 'Name is required'),
-  description: z.string().min(1, 'Description is required'),
-  price: z.coerce.number().gt(0, 'Price must be greater than 0'),
-  categoryId: z.string().min(1, 'Category is required'),
-  stock: z.coerce.number().min(0, 'Stock must be 0 or greater'),
+  name: z.string().min(1, "Name is required"),
+  description: z.string().min(1, "Description is required"),
+  price: z.coerce.number().gt(0, "Price must be greater than 0"),
+  categoryId: z.string().min(1, "Category is required"),
+  stock: z.coerce.number().min(0, "Stock must be 0 or greater"),
   isOnSale: z.boolean().default(false),
   isFeatured: z.boolean().default(false),
   salePrice: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? null : Number(val)),
-    z.number().positive('Sale price must be positive').nullable()
+    (val) =>
+      val === "" || val === null || val === undefined ? null : Number(val),
+    z.number().positive("Sale price must be positive").nullable(),
   ),
   salePercentage: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? null : Number(val)),
-    z.number().min(0, 'Percentage must be at least 0').max(100, 'Percentage cannot exceed 100').nullable()
+    (val) =>
+      val === "" || val === null || val === undefined ? null : Number(val),
+    z
+      .number()
+      .min(0, "Percentage must be at least 0")
+      .max(100, "Percentage cannot exceed 100")
+      .nullable(),
   ),
   isCombo: z.boolean().default(false),
   sizeChartUrl: z.string().optional().nullable(),
@@ -409,69 +464,86 @@ const CreateProduct = ProductSchema.omit({ id: true });
 const UpdateProduct = ProductSchema.omit({ id: true });
 
 export async function createProduct(_prevState: State, formData: FormData) {
-  const isOnSaleValue = formData.get('isOnSale') === 'on';
-  const isFeaturedValue = formData.get('isFeatured') === 'on';
-  const isComboValue = formData.get('isCombo') === 'on';
-  const salePriceValue = formData.get('salePrice');
-  const salePercentageValue = formData.get('salePercentage');
-  
+  const isOnSaleValue = formData.get("isOnSale") === "on";
+  const isFeaturedValue = formData.get("isFeatured") === "on";
+  const isComboValue = formData.get("isCombo") === "on";
+  const salePriceValue = formData.get("salePrice");
+  const salePercentageValue = formData.get("salePercentage");
+
   const validatedFields = CreateProduct.safeParse({
-    name: formData.get('name'),
-    description: formData.get('description'),
-    price: formData.get('price'),
-    categoryId: formData.get('categoryId'),
-    stock: formData.get('stock'),
+    name: formData.get("name"),
+    description: formData.get("description"),
+    price: formData.get("price"),
+    categoryId: formData.get("categoryId"),
+    stock: formData.get("stock"),
     isOnSale: isOnSaleValue,
     isFeatured: isFeaturedValue,
     salePrice: isOnSaleValue && salePriceValue ? salePriceValue : null,
-    salePercentage: isOnSaleValue && salePercentageValue ? salePercentageValue : null,
+    salePercentage:
+      isOnSaleValue && salePercentageValue ? salePercentageValue : null,
     isCombo: isComboValue,
-    sizeChartUrl: formData.get('existingSizeChartUrl') as string || null,
-    sizes: JSON.parse(formData.get('sizesJson') as string || '[]'),
+    sizeChartUrl: (formData.get("existingSizeChartUrl") as string) || null,
+    sizes: JSON.parse((formData.get("sizesJson") as string) || "[]"),
   });
 
   if (!validatedFields.success) {
     return {
       errors: validatedFields.error.flatten().fieldErrors,
-      message: 'Missing Fields. Failed to Create Product.',
+      message: "Missing Fields. Failed to Create Product.",
     };
   }
 
-  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage, isCombo, sizes, sizeChartUrl } = validatedFields.data;
-  
+  const {
+    name,
+    description,
+    price,
+    categoryId,
+    stock,
+    isOnSale,
+    isFeatured,
+    salePrice,
+    salePercentage,
+    isCombo,
+    sizes,
+    sizeChartUrl,
+  } = validatedFields.data;
+
   // Handle size chart upload
-  const sizeChartFile = formData.get('sizeChart') as File | null;
+  const sizeChartFile = formData.get("sizeChart") as File | null;
   let finalSizeChartUrl = sizeChartUrl;
   if (sizeChartFile && sizeChartFile.size > 0) {
     try {
-      finalSizeChartUrl = await uploadImageAsWebp(sizeChartFile, 'size-charts');
+      finalSizeChartUrl = await uploadImageAsWebp(sizeChartFile, "size-charts");
     } catch (e) {
       console.error("Size chart upload error", e);
       return {
-        message: e instanceof ImageUploadValidationError ? e.message : 'Size chart upload failed.',
+        message:
+          e instanceof ImageUploadValidationError
+            ? e.message
+            : "Size chart upload failed.",
       };
     }
   }
-  
+
   // Calculate sale price if percentage is provided
   let finalSalePrice = salePrice;
   if (isOnSale && salePercentage !== null) {
     finalSalePrice = price * (1 - salePercentage / 100);
   }
-  
+
   // Validate category exists
   const category = await prisma.category.findUnique({
     where: { id: categoryId },
   });
-  
+
   if (!category) {
     return {
-      errors: { categoryId: ['Selected category does not exist.'] },
-      message: 'Invalid category.',
+      errors: { categoryId: ["Selected category does not exist."] },
+      message: "Invalid category.",
     };
   }
-  
-  const imageFiles = formData.getAll('images') as File[];
+
+  const imageFiles = formData.getAll("images") as File[];
   const images: string[] = [];
 
   if (imageFiles.length > 0 && imageFiles[0].size > 0) {
@@ -482,13 +554,16 @@ export async function createProduct(_prevState: State, formData: FormData) {
         } catch (e) {
           console.error("Upload error", e);
           return {
-            message: e instanceof ImageUploadValidationError ? e.message : 'Image upload failed.',
+            message:
+              e instanceof ImageUploadValidationError
+                ? e.message
+                : "Image upload failed.",
           };
         }
       }
     }
   } else {
-     return { message: 'At least one image is required.' };
+    return { message: "At least one image is required." };
   }
 
   try {
@@ -508,11 +583,13 @@ export async function createProduct(_prevState: State, formData: FormData) {
         sizes,
         images,
         variants: {
-          create: JSON.parse(formData.get('variantsJson') as string || '[]').map((v: any) => ({
+          create: JSON.parse(
+            (formData.get("variantsJson") as string) || "[]",
+          ).map((v: any) => ({
             colorName: v.colorName,
             hexCode: v.hexCode,
             price: v.price ? parseFloat(v.price) : null,
-            stock: parseInt(v.stock || '0'),
+            stock: parseInt(v.stock || "0"),
             sizes: v.sizes || [],
             imageUrl: v.imageUrl || null,
             images: v.images || [],
@@ -521,85 +598,106 @@ export async function createProduct(_prevState: State, formData: FormData) {
       },
     });
   } catch (error) {
-    console.error('Database Error:', error);
-    return { message: 'Database Error: Failed to Create Product.' };
+    console.error("Database Error:", error);
+    return { message: "Database Error: Failed to Create Product." };
   }
 
-  revalidatePath('/admin');
-  revalidatePath('/');
-  revalidatePath('/sale');
-  revalidatePath('/combos');
-  revalidatePath('/products/category', 'layout');
-  redirect('/admin');
+  revalidatePath("/admin");
+  revalidatePath("/");
+  revalidatePath("/sale");
+  revalidatePath("/combos");
+  revalidatePath("/products/category", "layout");
+  redirect("/admin");
 }
 
-export async function updateProduct(id: string, _prevState: State, formData: FormData) {
-  const isOnSaleValue = formData.get('isOnSale') === 'on';
-  const isFeaturedValue = formData.get('isFeatured') === 'on';
-  const isComboValue = formData.get('isCombo') === 'on';
-  const salePriceValue = formData.get('salePrice');
-  const salePercentageValue = formData.get('salePercentage');
-  
+export async function updateProduct(
+  id: string,
+  _prevState: State,
+  formData: FormData,
+) {
+  const isOnSaleValue = formData.get("isOnSale") === "on";
+  const isFeaturedValue = formData.get("isFeatured") === "on";
+  const isComboValue = formData.get("isCombo") === "on";
+  const salePriceValue = formData.get("salePrice");
+  const salePercentageValue = formData.get("salePercentage");
+
   const validatedFields = UpdateProduct.safeParse({
-    name: formData.get('name'),
-    description: formData.get('description'),
-    price: formData.get('price'),
-    categoryId: formData.get('categoryId'),
-    stock: formData.get('stock'),
+    name: formData.get("name"),
+    description: formData.get("description"),
+    price: formData.get("price"),
+    categoryId: formData.get("categoryId"),
+    stock: formData.get("stock"),
     isOnSale: isOnSaleValue,
     isFeatured: isFeaturedValue,
     salePrice: isOnSaleValue && salePriceValue ? salePriceValue : null,
-    salePercentage: isOnSaleValue && salePercentageValue ? salePercentageValue : null,
+    salePercentage:
+      isOnSaleValue && salePercentageValue ? salePercentageValue : null,
     isCombo: isComboValue,
-    sizeChartUrl: formData.get('existingSizeChartUrl') as string || null,
-    sizes: JSON.parse(formData.get('sizesJson') as string || '[]'),
+    sizeChartUrl: (formData.get("existingSizeChartUrl") as string) || null,
+    sizes: JSON.parse((formData.get("sizesJson") as string) || "[]"),
   });
 
   if (!validatedFields.success) {
     return {
       errors: validatedFields.error.flatten().fieldErrors,
-      message: 'Missing Fields. Failed to Update Product.',
+      message: "Missing Fields. Failed to Update Product.",
     };
   }
 
-  const { name, description, price, categoryId, stock, isOnSale, isFeatured, salePrice, salePercentage, isCombo, sizes, sizeChartUrl } = validatedFields.data;
+  const {
+    name,
+    description,
+    price,
+    categoryId,
+    stock,
+    isOnSale,
+    isFeatured,
+    salePrice,
+    salePercentage,
+    isCombo,
+    sizes,
+    sizeChartUrl,
+  } = validatedFields.data;
 
   // Handle size chart upload
-  const sizeChartFile = formData.get('sizeChart') as File | null;
+  const sizeChartFile = formData.get("sizeChart") as File | null;
   let finalSizeChartUrl = sizeChartUrl;
   if (sizeChartFile && sizeChartFile.size > 0) {
     try {
-      finalSizeChartUrl = await uploadImageAsWebp(sizeChartFile, 'size-charts');
+      finalSizeChartUrl = await uploadImageAsWebp(sizeChartFile, "size-charts");
     } catch (e) {
       console.error("Size chart upload error", e);
       return {
-        message: e instanceof ImageUploadValidationError ? e.message : 'Size chart upload failed.',
+        message:
+          e instanceof ImageUploadValidationError
+            ? e.message
+            : "Size chart upload failed.",
       };
     }
   }
-  
+
   // Calculate sale price if percentage is provided
   let finalSalePrice = salePrice;
   if (isOnSale && salePercentage !== null) {
     finalSalePrice = price * (1 - salePercentage / 100);
   }
-  
+
   // Validate category exists
   const category = await prisma.category.findUnique({
     where: { id: categoryId },
   });
-  
+
   if (!category) {
     return {
-      errors: { categoryId: ['Selected category does not exist.'] },
-      message: 'Invalid category.',
+      errors: { categoryId: ["Selected category does not exist."] },
+      message: "Invalid category.",
     };
   }
-  
+
   // Get existing images from form data
-  const existingImages = formData.getAll('existingImages') as string[];
-  
-  const imageFiles = formData.getAll('images') as File[];
+  const existingImages = formData.getAll("existingImages") as string[];
+
+  const imageFiles = formData.getAll("images") as File[];
   const newImages: string[] = [];
 
   if (imageFiles.length > 0 && imageFiles[0].size > 0) {
@@ -610,7 +708,10 @@ export async function updateProduct(id: string, _prevState: State, formData: For
         } catch (e) {
           console.error("Upload error", e);
           return {
-            message: e instanceof ImageUploadValidationError ? e.message : 'Image upload failed.',
+            message:
+              e instanceof ImageUploadValidationError
+                ? e.message
+                : "Image upload failed.",
           };
         }
       }
@@ -620,11 +721,13 @@ export async function updateProduct(id: string, _prevState: State, formData: For
   const images = [...existingImages, ...newImages];
 
   if (images.length === 0) {
-    return { message: 'At least one image is required.' };
+    return { message: "At least one image is required." };
   }
 
   try {
-    const variants = JSON.parse(formData.get('variantsJson') as string || '[]');
+    const variants = JSON.parse(
+      (formData.get("variantsJson") as string) || "[]",
+    );
 
     await prisma.$transaction([
       // Delete old variants
@@ -651,7 +754,7 @@ export async function updateProduct(id: string, _prevState: State, formData: For
               colorName: v.colorName,
               hexCode: v.hexCode,
               price: v.price ? parseFloat(v.price) : null,
-              stock: parseInt(v.stock || '0'),
+              stock: parseInt(v.stock || "0"),
               sizes: v.sizes || [],
               imageUrl: v.imageUrl || null,
               images: v.images || [],
@@ -661,16 +764,16 @@ export async function updateProduct(id: string, _prevState: State, formData: For
       }),
     ]);
   } catch (error) {
-    console.error('Database Error:', error);
-    return { message: 'Database Error: Failed to Update Product.' };
+    console.error("Database Error:", error);
+    return { message: "Database Error: Failed to Update Product." };
   }
 
-  revalidatePath('/admin');
-  revalidatePath('/');
-  revalidatePath('/sale');
-  revalidatePath('/combos');
-  revalidatePath('/products/category', 'layout');
-  redirect('/admin');
+  revalidatePath("/admin");
+  revalidatePath("/");
+  revalidatePath("/sale");
+  revalidatePath("/combos");
+  revalidatePath("/products/category", "layout");
+  redirect("/admin");
 }
 
 export async function deleteProduct(id: string) {
@@ -691,7 +794,7 @@ export async function deleteProduct(id: string) {
     });
 
     if (!product) {
-      throw new Error('Product not found.');
+      throw new Error("Product not found.");
     }
 
     await prisma.product.delete({
@@ -713,13 +816,13 @@ export async function deleteProduct(id: string) {
     // Delete all blob images
     await deleteBlobs(urlsToDelete);
 
-    revalidatePath('/admin');
-    revalidatePath('/');
-    revalidatePath('/sale');
-    revalidatePath('/products/category', 'layout');
+    revalidatePath("/admin");
+    revalidatePath("/");
+    revalidatePath("/sale");
+    revalidatePath("/products/category", "layout");
   } catch (error) {
-    console.error('Database Error:', error);
-    throw new Error('Database Error: Failed to Delete Product.');
+    console.error("Database Error:", error);
+    throw new Error("Database Error: Failed to Delete Product.");
   }
 }
 
@@ -737,7 +840,7 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
   const results: BulkProductResult[] = [];
 
   // Parse the products JSON from form data
-  const productsJson = formData.get('products') as string;
+  const productsJson = formData.get("products") as string;
   let products: Array<{
     name: string;
     description: string;
@@ -764,24 +867,31 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
   try {
     products = JSON.parse(productsJson);
   } catch {
-    return { success: false, results: [], message: 'Invalid product data format.' };
+    return {
+      success: false,
+      results: [],
+      message: "Invalid product data format.",
+    };
   }
 
   if (!products || products.length === 0) {
-    return { success: false, results: [], message: 'No products to create.' };
+    return { success: false, results: [], message: "No products to create." };
   }
 
   // Get all uploaded images
   const imageFiles: Map<string, File> = new Map();
   for (const [key, value] of formData.entries()) {
-    if (key.startsWith('image_') && value instanceof File && value.size > 0) {
+    if (key.startsWith("image_") && value instanceof File && value.size > 0) {
       imageFiles.set(value.name, value);
     }
   }
 
   // Process each product
   for (const product of products) {
-    const productResult: BulkProductResult = { success: false, name: product.name };
+    const productResult: BulkProductResult = {
+      success: false,
+      name: product.name,
+    };
 
     // Validate product data
     const validatedFields = CreateProduct.safeParse({
@@ -794,13 +904,19 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
       isFeatured: product.isFeatured || false,
       isCombo: product.isCombo || false,
       salePrice: product.isOnSale ? (product.salePrice ?? null) : null,
-      salePercentage: product.isOnSale ? (product.salePercentage ?? null) : null,
+      salePercentage: product.isOnSale
+        ? (product.salePercentage ?? null)
+        : null,
       sizeChartUrl: null, // Will be set later if size chart is provided
       sizes: product.sizes || [],
     });
 
     if (!validatedFields.success) {
-      productResult.error = 'Validation failed: ' + Object.values(validatedFields.error.flatten().fieldErrors).flat().join(', ');
+      productResult.error =
+        "Validation failed: " +
+        Object.values(validatedFields.error.flatten().fieldErrors)
+          .flat()
+          .join(", ");
       results.push(productResult);
       continue;
     }
@@ -821,9 +937,11 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
       try {
         productImages.push(await uploadImageAsWebp(imageFile));
       } catch (e) {
-        console.error('Upload error', e);
+        console.error("Upload error", e);
         productResult.error =
-          e instanceof ImageUploadValidationError ? e.message : 'Image upload failed';
+          e instanceof ImageUploadValidationError
+            ? e.message
+            : "Image upload failed";
         uploadError = true;
         break;
       }
@@ -835,7 +953,7 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
     }
 
     if (productImages.length === 0) {
-      productResult.error = 'No images provided';
+      productResult.error = "No images provided";
       results.push(productResult);
       continue;
     }
@@ -846,10 +964,13 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
       const sizeChartFile = imageFiles.get(product.sizeChartFileName);
       if (sizeChartFile) {
         try {
-          sizeChartUrl = await uploadImageAsWebp(sizeChartFile, 'size-charts');
+          sizeChartUrl = await uploadImageAsWebp(sizeChartFile, "size-charts");
         } catch (e) {
-          console.error('Size chart upload error', e);
-          productResult.error = e instanceof ImageUploadValidationError ? e.message : 'Size chart upload failed';
+          console.error("Size chart upload error", e);
+          productResult.error =
+            e instanceof ImageUploadValidationError
+              ? e.message
+              : "Size chart upload failed";
           results.push(productResult);
           continue;
         }
@@ -858,7 +979,19 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
 
     // Create product in database
     try {
-      const { name, description, price, categoryId, stock, isOnSale, isFeatured, isCombo, salePrice, salePercentage, sizes } = validatedFields.data;
+      const {
+        name,
+        description,
+        price,
+        categoryId,
+        stock,
+        isOnSale,
+        isFeatured,
+        isCombo,
+        salePrice,
+        salePercentage,
+        sizes,
+      } = validatedFields.data;
 
       // Calculate sale price if percentage is provided
       let finalSalePrice = salePrice;
@@ -867,17 +1000,21 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
       }
 
       // Build variant data if provided
-      const variantData = product.variant?.colorName ? {
-        create: [{
-          colorName: product.variant.colorName,
-          hexCode: product.variant.hexCode || null,
-          price: product.variant.price || null,
-          stock: product.variant.stock || 0,
-          sizes: product.variant.sizes || [],
-          imageUrl: null,
-          images: productImages, // All product images go to the variant
-        }],
-      } : undefined;
+      const variantData = product.variant?.colorName
+        ? {
+            create: [
+              {
+                colorName: product.variant.colorName,
+                hexCode: product.variant.hexCode || null,
+                price: product.variant.price || null,
+                stock: product.variant.stock || 0,
+                sizes: product.variant.sizes || [],
+                imageUrl: null,
+                images: productImages, // All product images go to the variant
+              },
+            ],
+          }
+        : undefined;
 
       await prisma.product.create({
         data: {
@@ -899,26 +1036,26 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
       });
       productResult.success = true;
     } catch (error) {
-      console.error('Database error', error);
-      productResult.error = 'Database error';
+      console.error("Database error", error);
+      productResult.error = "Database error";
     }
 
     results.push(productResult);
   }
 
-  const successCount = results.filter(r => r.success).length;
-  const failCount = results.filter(r => !r.success).length;
+  const successCount = results.filter((r) => r.success).length;
+  const failCount = results.filter((r) => !r.success).length;
 
-  revalidatePath('/admin');
-  revalidatePath('/');
-  revalidatePath('/sale');
-  revalidatePath('/combos');
-  revalidatePath('/products/category', 'layout');
+  revalidatePath("/admin");
+  revalidatePath("/");
+  revalidatePath("/sale");
+  revalidatePath("/combos");
+  revalidatePath("/products/category", "layout");
 
   return {
     success: failCount === 0,
     results,
-    message: `Created ${successCount} products successfully${failCount > 0 ? `, ${failCount} failed` : ''}.`,
+    message: `Created ${successCount} products successfully${failCount > 0 ? `, ${failCount} failed` : ""}.`,
   };
 }
 
@@ -932,12 +1069,14 @@ const OrderSchema = z.object({
   country: z.string().min(1),
   totalAmount: z.number().gt(0),
   paymentId: z.string().optional(),
-  items: z.array(z.object({
-    id: z.string(),
-    quantity: z.number(),
-    price: z.number(),
-    size: z.string().optional().nullable(),
-  }))
+  items: z.array(
+    z.object({
+      id: z.string(),
+      quantity: z.number(),
+      price: z.number(),
+      size: z.string().optional().nullable(),
+    }),
+  ),
 });
 
 export async function createOrder(data: z.infer<typeof OrderSchema>) {
@@ -961,16 +1100,16 @@ export async function createOrder(data: z.infer<typeof OrderSchema>) {
         country: orderData.country,
         totalAmount: orderData.totalAmount,
         paymentId: orderData.paymentId,
-        status: 'COMPLETED',
+        status: "PENDING",
         items: {
-          create: orderData.items.map(item => ({
-             productId: item.id,
-             quantity: item.quantity,
-             price: item.price,
-             size: item.size,
-          }))
-        }
-      }
+          create: orderData.items.map((item) => ({
+            productId: item.id,
+            quantity: item.quantity,
+            price: item.price,
+            size: item.size,
+          })),
+        },
+      },
     });
     return { success: true };
   } catch (error) {
@@ -981,10 +1120,10 @@ export async function createOrder(data: z.infer<typeof OrderSchema>) {
 
 // Contact form schema
 const ContactFormSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Valid email is required'),
-  subject: z.string().min(1, 'Subject is required'),
-  message: z.string().min(10, 'Message must be at least 10 characters'),
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Valid email is required"),
+  subject: z.string().min(1, "Subject is required"),
+  message: z.string().min(10, "Message must be at least 10 characters"),
 });
 
 export type ContactFormState = {
@@ -1000,34 +1139,34 @@ export type ContactFormState = {
 
 export async function submitContactForm(
   _prevState: ContactFormState,
-  formData: FormData
+  formData: FormData,
 ): Promise<ContactFormState> {
   // Honeypot check
-  const website = formData.get('b_website');
-  const formTs = formData.get('form_ts');
+  const website = formData.get("b_website");
+  const formTs = formData.get("form_ts");
   const currentTime = Date.now();
-  
+
   // If honeypot is filled OR form was submitted in less than 3 seconds
   if (website || (formTs && currentTime - Number(formTs) < 3000)) {
-    console.warn('Bot detected: Honeypot or fast submission.');
+    console.warn("Bot detected: Honeypot or fast submission.");
     return {
       success: true,
-      message: 'Thank you! Your message has been sent successfully.',
+      message: "Thank you! Your message has been sent successfully.",
     };
   }
 
   const validatedFields = ContactFormSchema.safeParse({
-    name: formData.get('name'),
-    email: formData.get('email'),
-    subject: formData.get('subject'),
-    message: formData.get('message'),
+    name: formData.get("name"),
+    email: formData.get("email"),
+    subject: formData.get("subject"),
+    message: formData.get("message"),
   });
 
   if (!validatedFields.success) {
     return {
       success: false,
       errors: validatedFields.error.flatten().fieldErrors,
-      message: 'Please fix the errors above.',
+      message: "Please fix the errors above.",
     };
   }
 
@@ -1036,8 +1175,8 @@ export async function submitContactForm(
   try {
     // Send email to the store owner
     await resend.emails.send({
-      from: 'Royals and Radiant <onboarding@resend.dev>',
-      to: process.env.CONTACT_EMAIL || '',
+      from: "Royals and Radiant <onboarding@resend.dev>",
+      to: process.env.CONTACT_EMAIL || "",
       replyTo: email,
       subject: `Contact Form: ${subject}`,
       html: `
@@ -1076,7 +1215,7 @@ export async function submitContactForm(
 
             <div style="padding: 25px; background-color: #F2F0EA; border-left: 4px solid #9A3B3B; border-radius: 0 4px 4px 0;">
               <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #C4A484; display: block; margin-bottom: 10px;">Message</span>
-              <div style="font-size: 15px; line-height: 1.6; color: #2C2A24;">${message.replace(/\n/g, '<br>')}</div>
+              <div style="font-size: 15px; line-height: 1.6; color: #2C2A24;">${message.replace(/\n/g, "<br>")}</div>
             </div>
 
             <!-- Footer -->
@@ -1092,9 +1231,9 @@ export async function submitContactForm(
 
     // Send confirmation email to the customer
     await resend.emails.send({
-      from: 'Royals and Radiant <onboarding@resend.dev>',
+      from: "Royals and Radiant <onboarding@resend.dev>",
       to: email,
-      subject: 'Thank you for contacting Royals and Radiant',
+      subject: "Thank you for contacting Royals and Radiant",
       html: `
         <div style="background-color: #F2F0EA; padding: 40px 20px; font-family: 'Mulish', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #2C2A24;">
           <div style="max-width: 600px; margin: 0 auto; background-color: #F9F7F2; border: 1px solid #DED8CD; padding: 40px; border-radius: 4px;">
@@ -1126,7 +1265,7 @@ export async function submitContactForm(
               <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #9A3B3B; display: block; margin-bottom: 10px;">Your Message Copy</span>
               <div style="font-size: 14px; line-height: 1.6; color: #2C2A24; opacity: 0.8;">
                 <strong>Subject:</strong> ${subject}<br><br>
-                ${message.replace(/\n/g, '<br>')}
+                ${message.replace(/\n/g, "<br>")}
               </div>
             </div>
 
@@ -1146,13 +1285,13 @@ export async function submitContactForm(
 
     return {
       success: true,
-      message: 'Thank you! Your message has been sent successfully.',
+      message: "Thank you! Your message has been sent successfully.",
     };
   } catch (error) {
-    console.error('Email send error:', error);
+    console.error("Email send error:", error);
     return {
       success: false,
-      message: 'Failed to send message. Please try again later.',
+      message: "Failed to send message. Please try again later.",
     };
   }
 }
@@ -1161,15 +1300,19 @@ export async function submitContactForm(
 export async function getOrderBySessionId(sessionId: string) {
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
-    
-    if (!session.payment_intent) {
+
+    const paymentIntentId =
+      typeof session.payment_intent === "string"
+        ? session.payment_intent
+        : session.payment_intent?.id;
+
+    if (!paymentIntentId) {
       return null;
     }
-    
-    // Find order by payment intent ID
+
     const order = await prisma.order.findFirst({
       where: {
-        paymentId: session.payment_intent as string,
+        OR: [{ paymentIntentId }, { paymentId: paymentIntentId }],
       },
       include: {
         items: {
@@ -1183,11 +1326,41 @@ export async function getOrderBySessionId(sessionId: string) {
         },
       },
     });
-    
+
     if (!order) {
       return null;
     }
-    
+
+    const shippingAddressFromJson =
+      order.shippingAddress &&
+      typeof order.shippingAddress === "object" &&
+      !Array.isArray(order.shippingAddress)
+        ? (order.shippingAddress as Record<string, unknown>)
+        : null;
+
+    const shippingAddress = {
+      line1:
+        typeof shippingAddressFromJson?.line1 === "string"
+          ? shippingAddressFromJson.line1
+          : order.addressLine1,
+      line2:
+        typeof shippingAddressFromJson?.line2 === "string"
+          ? shippingAddressFromJson.line2
+          : order.addressLine2,
+      city:
+        typeof shippingAddressFromJson?.city === "string"
+          ? shippingAddressFromJson.city
+          : order.city,
+      postalCode:
+        typeof shippingAddressFromJson?.postalCode === "string"
+          ? shippingAddressFromJson.postalCode
+          : order.postalCode,
+      country:
+        typeof shippingAddressFromJson?.country === "string"
+          ? shippingAddressFromJson.country
+          : order.country,
+    };
+
     return {
       id: order.id,
       customerName: order.customerName,
@@ -1195,22 +1368,23 @@ export async function getOrderBySessionId(sessionId: string) {
       totalAmount: Number(order.totalAmount),
       status: order.status,
       createdAt: order.createdAt,
-      items: order.items.map((item: { product: { name: string }; quantity: number; price: unknown; size: string | null }) => ({
-        name: item.product.name,
-        quantity: item.quantity,
-        price: Number(item.price),
-        size: item.size,
-      })),
-      shippingAddress: {
-        line1: order.addressLine1,
-        line2: order.addressLine2,
-        city: order.city,
-        postalCode: order.postalCode,
-        country: order.country,
-      },
+      items: order.items.map(
+        (item: {
+          product: { name: string };
+          quantity: number;
+          price: unknown;
+          size: string | null;
+        }) => ({
+          name: item.product.name,
+          quantity: item.quantity,
+          price: Number(item.price),
+          size: item.size,
+        }),
+      ),
+      shippingAddress,
     };
   } catch (error) {
-    console.error('Error fetching order by session ID:', error);
+    console.error("Error fetching order by session ID:", error);
     return null;
   }
 }
@@ -1243,13 +1417,13 @@ export async function createStripeCheckoutSession(
   shippingInfo: ShippingInfo,
   shippingCost: number = 0,
   coupon?: { code: string; discountAmount: number },
-  isPickup: boolean = false
+  isPickup: boolean = false,
 ): Promise<{ url: string | null; error?: string }> {
   try {
     // Get base URL with fallback for local development
     const appUrl = getBaseUrl();
     if (!appUrl) {
-      return { url: null, error: 'Base URL is not set' };
+      return { url: null, error: "Base URL is not set" };
     }
 
     // Find existing customer or create new one to pre-fill Stripe checkout
@@ -1261,21 +1435,24 @@ export async function createStripeCheckoutSession(
 
     if (existingCustomers.data.length > 0) {
       // Update existing customer with new shipping info
-      const customer = await stripe.customers.update(existingCustomers.data[0].id, {
-        name: shippingInfo.customerName,
-        ...(!isPickup && {
-          shipping: {
-            name: shippingInfo.customerName,
-            address: {
-              line1: shippingInfo.addressLine1,
-              line2: shippingInfo.addressLine2 || undefined,
-              city: shippingInfo.city,
-              postal_code: shippingInfo.postalCode,
-              country: shippingInfo.country,
+      const customer = await stripe.customers.update(
+        existingCustomers.data[0].id,
+        {
+          name: shippingInfo.customerName,
+          ...(!isPickup && {
+            shipping: {
+              name: shippingInfo.customerName,
+              address: {
+                line1: shippingInfo.addressLine1,
+                line2: shippingInfo.addressLine2 || undefined,
+                city: shippingInfo.city,
+                postal_code: shippingInfo.postalCode,
+                country: shippingInfo.country,
+              },
             },
-          },
-        }),
-      });
+          }),
+        },
+      );
       customerId = customer.id;
     } else {
       // Create new customer with shipping info
@@ -1300,7 +1477,7 @@ export async function createStripeCheckoutSession(
 
     const lineItems: any[] = items.map((item) => ({
       price_data: {
-        currency: 'usd',
+        currency: "usd",
         product_data: {
           name: item.name,
           images: item.images && item.images.length > 0 ? [item.images[0]] : [],
@@ -1314,9 +1491,9 @@ export async function createStripeCheckoutSession(
     if (shippingCost > 0) {
       lineItems.push({
         price_data: {
-          currency: 'usd',
+          currency: "usd",
           product_data: {
-            name: 'Shipping & Handling',
+            name: "Shipping & Handling",
           },
           unit_amount: Math.round(shippingCost * 100),
         },
@@ -1329,7 +1506,7 @@ export async function createStripeCheckoutSession(
     if (coupon && coupon.discountAmount > 0) {
       lineItems.push({
         price_data: {
-          currency: 'usd',
+          currency: "usd",
           product_data: {
             name: `Discount: ${coupon.code}`,
           },
@@ -1342,10 +1519,10 @@ export async function createStripeCheckoutSession(
     const orderId = `ORD-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
 
     // Include combo information in metadata
-    const itemsMetadata = items.map(i => ({ 
-      id: i.id, 
-      quantity: i.quantity, 
-      price: i.price, 
+    const itemsMetadata = items.map((i) => ({
+      id: i.id,
+      quantity: i.quantity,
+      price: i.price,
       name: i.name,
       comboId: i.comboId || null,
       originalProductId: i.originalProductId || null,
@@ -1354,9 +1531,9 @@ export async function createStripeCheckoutSession(
     }));
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+      payment_method_types: ["card"],
       line_items: lineItems,
-      mode: 'payment',
+      mode: "payment",
       success_url: `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/checkout`,
       customer: customerId,
@@ -1365,40 +1542,40 @@ export async function createStripeCheckoutSession(
           orderId: orderId,
           customerName: shippingInfo.customerName,
           addressLine1: shippingInfo.addressLine1,
-          addressLine2: shippingInfo.addressLine2 || '',
+          addressLine2: shippingInfo.addressLine2 || "",
           city: shippingInfo.city,
           postalCode: shippingInfo.postalCode,
           country: shippingInfo.country,
           items: JSON.stringify(itemsMetadata),
-          couponCode: coupon?.code || '',
-          discountAmount: coupon?.discountAmount.toString() || '0',
-          isPickup: isPickup ? 'true' : 'false',
+          couponCode: coupon?.code || "",
+          discountAmount: coupon?.discountAmount.toString() || "0",
+          isPickup: isPickup ? "true" : "false",
         },
       },
       metadata: {
         orderId: orderId,
         customerName: shippingInfo.customerName,
         addressLine1: shippingInfo.addressLine1,
-        addressLine2: shippingInfo.addressLine2 || '',
+        addressLine2: shippingInfo.addressLine2 || "",
         city: shippingInfo.city,
         postalCode: shippingInfo.postalCode,
         country: shippingInfo.country,
         items: JSON.stringify(itemsMetadata),
-        couponCode: coupon?.code || '',
-        discountAmount: coupon?.discountAmount.toString() || '0',
-        isPickup: isPickup ? 'true' : 'false',
+        couponCode: coupon?.code || "",
+        discountAmount: coupon?.discountAmount.toString() || "0",
+        isPickup: isPickup ? "true" : "false",
       },
       ...(!isPickup && {
         shipping_address_collection: {
-          allowed_countries: ['US', 'CA', 'GB', 'AU', 'IN'],
+          allowed_countries: ["US", "CA", "GB", "AU", "IN"],
         },
       }),
     });
 
     return { url: session.url };
   } catch (error) {
-    console.error('Stripe session error:', error);
-    return { url: null, error: 'Failed to create checkout session' };
+    console.error("Stripe session error:", error);
+    return { url: null, error: "Failed to create checkout session" };
   }
 }
 
@@ -1425,14 +1602,25 @@ type OrderConfirmationData = {
   };
 };
 
-async function sendOrderConfirmationEmail(data: OrderConfirmationData): Promise<void> {
-  const { orderId, customerName, customerEmail, items, totalAmount, shippingAddress } = data;
-  
+async function sendOrderConfirmationEmail(
+  data: OrderConfirmationData,
+): Promise<void> {
+  const {
+    orderId,
+    customerName,
+    customerEmail,
+    items,
+    totalAmount,
+    shippingAddress,
+  } = data;
+
   // Generate items HTML
-  const itemsHtml = items.map(item => `
+  const itemsHtml = items
+    .map(
+      (item) => `
     <tr>
       <td style="padding: 12px 0; border-bottom: 1px solid #DED8CD;">
-        <span style="font-size: 15px; color: #2C2A24;">${item.name}${item.size ? ` (Size: ${item.size})` : ''}</span>
+        <span style="font-size: 15px; color: #2C2A24;">${item.name}${item.size ? ` (Size: ${item.size})` : ""}</span>
       </td>
       <td style="padding: 12px 0; border-bottom: 1px solid #DED8CD; text-align: center;">
         <span style="font-size: 15px; color: #2C2A24;">${item.quantity}</span>
@@ -1441,7 +1629,9 @@ async function sendOrderConfirmationEmail(data: OrderConfirmationData): Promise<
         <span style="font-size: 15px; color: #2C2A24;">$${(item.price * item.quantity).toFixed(2)}</span>
       </td>
     </tr>
-  `).join('');
+  `,
+    )
+    .join("");
 
   // Format address
   const formattedAddress = [
@@ -1449,10 +1639,12 @@ async function sendOrderConfirmationEmail(data: OrderConfirmationData): Promise<
     shippingAddress.line2,
     `${shippingAddress.city}, ${shippingAddress.postalCode}`,
     shippingAddress.country,
-  ].filter(Boolean).join('<br>');
+  ]
+    .filter(Boolean)
+    .join("<br>");
 
   await resend.emails.send({
-    from: 'Royals and Radiant <confirmation@confirmation.royalsandradiant.com>',
+    from: "Royals and Radiant <confirmation@confirmation.royalsandradiant.com>",
     to: customerEmail,
     subject: `Order Confirmed - ${orderId}`,
     html: `
@@ -1558,198 +1750,464 @@ async function sendOrderConfirmationEmail(data: OrderConfirmationData): Promise<
   });
 }
 
+type OrderShippedEmailData = {
+  orderId: string;
+  customerName: string;
+  customerEmail: string;
+  trackingNumber: string;
+  trackingUrl: string;
+  carrierLabel: string;
+};
+
+async function sendOrderShippedEmail(
+  data: OrderShippedEmailData,
+): Promise<void> {
+  const {
+    orderId,
+    customerName,
+    customerEmail,
+    trackingNumber,
+    trackingUrl,
+    carrierLabel,
+  } = data;
+
+  await resend.emails.send({
+    from: "Royals and Radiant <confirmation@confirmation.royalsandradiant.com>",
+    to: customerEmail,
+    subject: `Your Order has Shipped! - ${orderId}`,
+    html: `
+      <div style="background-color: #F2F0EA; padding: 40px 20px; font-family: 'Mulish', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #2C2A24;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #F9F7F2; border: 1px solid #DED8CD; padding: 40px; border-radius: 4px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="font-family: 'Italiana', serif; font-size: 28px; font-weight: 400; margin: 0; color: #2C2A24;">
+              Royals and Radiant
+            </h1>
+            <div style="height: 1px; background-color: #C4A484; width: 60px; margin: 20px auto;"></div>
+          </div>
+
+          <h2 style="font-family: 'Italiana', serif; font-size: 22px; font-weight: 400; margin: 0 0 14px 0; color: #9A3B3B;">
+            Your Order has Shipped!
+          </h2>
+
+          <p style="font-size: 16px; line-height: 1.7; margin: 0 0 18px 0;">
+            Dear ${customerName},
+          </p>
+          <p style="font-size: 16px; line-height: 1.7; margin: 0 0 20px 0;">
+            Great news - your order is on the way.
+          </p>
+
+          <div style="background-color: #F2F0EA; border-left: 4px solid #C4A484; border-radius: 0 8px 8px 0; padding: 16px 18px; margin: 0 0 24px 0;">
+            <p style="font-size: 13px; color: #9A3B3B; margin: 0 0 8px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Tracking Details</p>
+            <p style="font-size: 15px; margin: 0 0 4px 0; color: #2C2A24;"><strong>Order:</strong> ${orderId}</p>
+            <p style="font-size: 15px; margin: 0 0 4px 0; color: #2C2A24;"><strong>Carrier:</strong> ${carrierLabel}</p>
+            <p style="font-size: 15px; margin: 0; color: #2C2A24;"><strong>Tracking Number:</strong> ${trackingNumber}</p>
+          </div>
+
+          <p style="font-size: 15px; line-height: 1.8; margin: 0 0 18px 0; color: #2C2A24;">
+            2. Tracking Your Order: Once your order is dispatched, a confirmation email will be sent containing your tracking number and a direct link to follow your package's journey. For security reasons, high-value jewelry orders may require a signature upon delivery.
+          </p>
+
+          <div style="margin: 0 0 26px 0;">
+            <a href="${trackingUrl}" style="display: inline-block; background-color: #9A3B3B; color: #FFFFFF; text-decoration: none; padding: 12px 20px; border-radius: 6px; font-size: 14px; font-weight: 600;">
+              Track Your Package
+            </a>
+          </div>
+
+          <p style="font-size: 13px; color: #2C2A24; opacity: 0.7; margin: 0;">
+            If the button above does not work, copy and paste this link into your browser:<br>
+            <a href="${trackingUrl}" style="color: #9A3B3B;">${trackingUrl}</a>
+          </p>
+        </div>
+      </div>
+    `,
+  });
+}
+
+export async function markOrderShipped(
+  orderId: string,
+  trackingNumber: string,
+) {
+  const normalizedOrderId = orderId.trim();
+  const normalizedTrackingNumber = trackingNumber.trim();
+
+  if (!normalizedOrderId) {
+    return { success: false, error: "Order ID is required." };
+  }
+
+  if (!normalizedTrackingNumber) {
+    return { success: false, error: "Tracking number is required." };
+  }
+
+  try {
+    const existingOrder = await prisma.order.findUnique({
+      where: { id: normalizedOrderId },
+      select: {
+        id: true,
+        customerName: true,
+        customerEmail: true,
+        status: true,
+        trackingNumber: true,
+      },
+    });
+
+    if (!existingOrder) {
+      return { success: false, error: "Order not found." };
+    }
+
+    if (
+      existingOrder.status === "SHIPPED" &&
+      existingOrder.trackingNumber === normalizedTrackingNumber
+    ) {
+      return { success: true, message: "Order is already marked as shipped." };
+    }
+
+    const trackingDetails = buildTrackingLink(normalizedTrackingNumber);
+
+    const updatedOrder = await prisma.order.update({
+      where: { id: normalizedOrderId },
+      data: {
+        status: "SHIPPED",
+        trackingNumber: trackingDetails.trackingNumber,
+      },
+      select: {
+        id: true,
+        customerName: true,
+        customerEmail: true,
+      },
+    });
+
+    let warning: string | undefined;
+    try {
+      await sendOrderShippedEmail({
+        orderId: updatedOrder.id,
+        customerName: updatedOrder.customerName,
+        customerEmail: updatedOrder.customerEmail,
+        trackingNumber: trackingDetails.trackingNumber,
+        trackingUrl: trackingDetails.trackingUrl,
+        carrierLabel: trackingDetails.carrierLabel,
+      });
+    } catch (emailError) {
+      console.error("Failed to send shipped email:", emailError);
+      warning = "Order updated, but shipping email could not be sent.";
+    }
+
+    revalidatePath("/admin/orders");
+    revalidatePath("/admin");
+
+    if (warning) {
+      return { success: true, warning };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to mark order as shipped:", error);
+    return { success: false, error: "Failed to mark order as shipped." };
+  }
+}
+
 export async function handleStripeWebhook(payload: string, signature: string) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  
+
   if (!webhookSecret) {
-    throw new Error('STRIPE_WEBHOOK_SECRET is not configured');
+    throw new Error("STRIPE_WEBHOOK_SECRET is not configured");
   }
-  
+
   try {
-    const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    const event = stripe.webhooks.constructEvent(
+      payload,
+      signature,
+      webhookSecret,
+    );
 
-    if (event.type === 'checkout.session.completed') {
+    if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
-      
       const metadata = session.metadata;
-      if (!metadata || !metadata.items) {
-        throw new Error('Missing metadata in session');
-      }
-      
-      const items: { id: string; quantity: number; price: number; name?: string; comboId?: string | null; originalProductId?: string | null; color?: string | null; size?: string | null }[] = JSON.parse(metadata.items);
-      const totalAmount = (session.amount_total || 0) / 100;
-      const customerEmail = session.customer_details?.email || session.customer_email || '';
-      const customerName = metadata.customerName || session.customer_details?.name || '';
-      const couponCode = metadata.couponCode || null;
-      const discountAmount = metadata.discountAmount ? parseFloat(metadata.discountAmount) : 0;
-      const isPickup = metadata.isPickup === 'true';
 
-      // Create order in database
-      const order = await prisma.order.create({
-        data: {
-          id: metadata.orderId,
+      if (!metadata?.items) {
+        throw new Error("Missing metadata in session");
+      }
+
+      type StripeCheckoutMetadataItem = {
+        id: string;
+        quantity: number;
+        price: number;
+        name?: string;
+        comboId?: string | null;
+        originalProductId?: string | null;
+        color?: string | null;
+        size?: string | null;
+      };
+
+      let metadataItems: StripeCheckoutMetadataItem[] = [];
+      try {
+        metadataItems = JSON.parse(
+          metadata.items,
+        ) as StripeCheckoutMetadataItem[];
+      } catch (parseError) {
+        console.error("Failed to parse Stripe items metadata:", parseError);
+        throw new Error("Invalid metadata.items payload");
+      }
+
+      const stripeLineItems = await stripe.checkout.sessions.listLineItems(
+        session.id,
+        {
+          limit: 100,
+        },
+      );
+
+      const mappedItems = metadataItems.map((item, index) => {
+        const lineItem = stripeLineItems.data[index];
+        const quantity = Number(lineItem?.quantity ?? item.quantity ?? 1);
+        const unitAmount = lineItem?.price?.unit_amount;
+
+        return {
+          productId: item.originalProductId || item.id,
+          quantity,
+          price: unitAmount != null ? unitAmount / 100 : item.price,
+          comboId: item.comboId || null,
+          color: item.color || null,
+          size: item.size || null,
+          name: item.name || null,
+        };
+      });
+
+      const paymentIntentId =
+        typeof session.payment_intent === "string"
+          ? session.payment_intent
+          : session.payment_intent?.id || null;
+
+      const stripeCustomerId =
+        typeof session.customer === "string"
+          ? session.customer
+          : session.customer?.id || null;
+
+      const customerEmailFromCustomer =
+        typeof session.customer === "object" &&
+        session.customer &&
+        "email" in session.customer &&
+        typeof session.customer.email === "string"
+          ? session.customer.email
+          : "";
+
+      const customerEmail =
+        session.customer_details?.email ||
+        session.customer_email ||
+        customerEmailFromCustomer ||
+        "";
+      const stripeShippingDetails =
+        session.collected_information?.shipping_details;
+      const customerName =
+        metadata.customerName ||
+        session.customer_details?.name ||
+        stripeShippingDetails?.name ||
+        "";
+
+      const stripeAddress =
+        stripeShippingDetails?.address || session.customer_details?.address;
+      const isPickup = metadata.isPickup === "true";
+      const shippingAddress = {
+        name: customerName || null,
+        line1: (stripeAddress?.line1 || metadata.addressLine1 || "").trim(),
+        line2: stripeAddress?.line2 || metadata.addressLine2 || "" || null,
+        city: (stripeAddress?.city || metadata.city || "").trim(),
+        state: stripeAddress?.state || null,
+        postalCode: (
+          stripeAddress?.postal_code ||
+          metadata.postalCode ||
+          ""
+        ).trim(),
+        country: (stripeAddress?.country || metadata.country || "").trim(),
+        isPickup,
+      };
+
+      const orderAddress = {
+        line1: shippingAddress.line1 || (isPickup ? "STORE PICKUP" : ""),
+        line2: shippingAddress.line2,
+        city: shippingAddress.city || (isPickup ? "PICKUP" : ""),
+        postalCode: shippingAddress.postalCode || (isPickup ? "PICKUP" : ""),
+        country: shippingAddress.country || "US",
+      };
+
+      const orderId = metadata.orderId || `ORD-${session.id}`;
+      const totalAmount = (session.amount_total || 0) / 100;
+      const couponCode = metadata.couponCode || null;
+      const discountAmount = metadata.discountAmount
+        ? parseFloat(metadata.discountAmount)
+        : 0;
+
+      const existingOrder = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { id: true },
+      });
+      const isNewOrder = !existingOrder;
+
+      const order = await prisma.order.upsert({
+        where: { id: orderId },
+        update: {
           customerName,
           customerEmail,
-          addressLine1: metadata.addressLine1 || '',
-          addressLine2: metadata.addressLine2 || null,
-          city: metadata.city || '',
-          postalCode: metadata.postalCode || '',
-          country: metadata.country || '',
+          addressLine1: orderAddress.line1,
+          addressLine2: orderAddress.line2,
+          city: orderAddress.city,
+          postalCode: orderAddress.postalCode,
+          country: orderAddress.country,
+          shippingAddress: shippingAddress as Prisma.InputJsonValue,
           totalAmount,
-          paymentId: session.payment_intent as string,
-          status: 'COMPLETED',
+          paymentIntentId,
+          paymentId: paymentIntentId,
+          stripeCustomerId,
           couponCode,
           discountAmount,
           isPickup,
           items: {
-            create: items.map((item) => ({
-              // Use originalProductId for combo items, otherwise use the regular id
-              productId: item.originalProductId || item.id,
-              quantity: item.quantity,
-              price: item.price,
-              comboId: item.comboId || null,
-              color: item.color || null,
-              size: item.size || null,
-            })),
+            deleteMany: {},
+            create: mappedItems.map(
+              ({ productId, quantity, price, comboId, color, size }) => ({
+                productId,
+                quantity,
+                price,
+                comboId,
+                color,
+                size,
+              }),
+            ),
+          },
+        },
+        create: {
+          id: orderId,
+          customerName,
+          customerEmail,
+          addressLine1: orderAddress.line1,
+          addressLine2: orderAddress.line2,
+          city: orderAddress.city,
+          postalCode: orderAddress.postalCode,
+          country: orderAddress.country,
+          shippingAddress: shippingAddress as Prisma.InputJsonValue,
+          totalAmount,
+          paymentIntentId,
+          paymentId: paymentIntentId,
+          stripeCustomerId,
+          status: "PENDING",
+          couponCode,
+          discountAmount,
+          isPickup,
+          items: {
+            create: mappedItems.map(
+              ({ productId, quantity, price, comboId, color, size }) => ({
+                productId,
+                quantity,
+                price,
+                comboId,
+                color,
+                size,
+              }),
+            ),
           },
         },
       });
 
-      // Decrement stock for each purchased item
-      // For combo items, use the originalProductId
-      for (const item of items) {
-        const productIdToUpdate = item.originalProductId || item.id;
-        await prisma.product.update({
-          where: { id: productIdToUpdate },
-          data: {
-            stock: {
-              decrement: item.quantity,
+      if (isNewOrder) {
+        for (const item of mappedItems) {
+          await prisma.product.update({
+            where: { id: item.productId },
+            data: {
+              stock: {
+                decrement: item.quantity,
+              },
             },
-          },
-        });
-      }
+          });
+        }
 
-      // Fetch product names for email if not in metadata
-      let emailItems: OrderConfirmationItem[] = [];
-      if (items[0]?.name) {
-        // Names are already in metadata
-        emailItems = items.map(item => ({
-          name: item.name || 'Item',
-          quantity: item.quantity,
-          price: item.price,
-          size: item.size,
-        }));
+        let emailItems: OrderConfirmationItem[] = [];
+        if (mappedItems[0]?.name) {
+          emailItems = mappedItems.map((item) => ({
+            name: item.name || "Item",
+            quantity: item.quantity,
+            price: item.price,
+            size: item.size,
+          }));
+        } else {
+          const products = await prisma.product.findMany({
+            where: { id: { in: mappedItems.map((item) => item.productId) } },
+            select: { id: true, name: true },
+          });
+          const productMap = new Map<string, string>(
+            products.map((product: { id: string; name: string }) => [
+              product.id,
+              product.name,
+            ]),
+          );
+          emailItems = mappedItems.map((item) => ({
+            name: productMap.get(item.productId) ?? "Item",
+            quantity: item.quantity,
+            price: item.price,
+            size: item.size,
+          }));
+        }
+
+        try {
+          await sendOrderConfirmationEmail({
+            orderId: order.id,
+            customerName,
+            customerEmail,
+            items: emailItems,
+            totalAmount,
+            shippingAddress: {
+              line1: orderAddress.line1,
+              line2: orderAddress.line2,
+              city: orderAddress.city,
+              postalCode: orderAddress.postalCode,
+              country: orderAddress.country,
+            },
+          });
+          console.log(
+            "Order confirmation email sent successfully to:",
+            customerEmail,
+          );
+        } catch (emailError) {
+          console.error("Failed to send order confirmation email:", emailError);
+        }
       } else {
-        // Fetch product names from database
-        const products = await prisma.product.findMany({
-          where: { id: { in: items.map(i => i.id) } },
-          select: { id: true, name: true },
-        });
-        const productMap = new Map<string, string>(products.map((p: { id: string; name: string }) => [p.id, p.name]));
-        emailItems = items.map(item => ({
-          name: productMap.get(item.id) ?? 'Item',
-          quantity: item.quantity,
-          price: item.price,
-          size: item.size,
-        }));
+        console.log(
+          `Order ${order.id} already exists; skipped duplicate stock/email side effects.`,
+        );
       }
 
-      // Send order confirmation email
-      try {
-        await sendOrderConfirmationEmail({
-          orderId: order.id,
-          customerName,
-          customerEmail,
-          items: emailItems,
-          totalAmount,
-          shippingAddress: {
-            line1: metadata.addressLine1 || '',
-            line2: metadata.addressLine2 || null,
-            city: metadata.city || '',
-            postalCode: metadata.postalCode || '',
-            country: metadata.country || '',
-          },
-        });
-        console.log('Order confirmation email sent successfully to:', customerEmail);
-      } catch (emailError) {
-        // Log detailed email error but don't fail the webhook
-        // Note: Resend test mode (onboarding@resend.dev) only sends to the account owner's email
-        console.error('Failed to send order confirmation email:', emailError);
-      }
-
-      // TODO: Uncomment to enable admin packing notification email
-      // This sends an email to your admin account with order details for packing
-      // try {
-      //   const adminEmail = process.env.ADMIN_EMAIL || 'your-email@example.com';
-      //   await resend.emails.send({
-      //     from: 'Orders <orders@royalsandradiant.com>',
-      //     to: adminEmail,
-      //     subject: `New Order - ${order.id} - Pack for ${isPickup ? 'Pickup' : 'Shipping'}`,
-      //     html: `
-      //       <h2>New Order Received - ${order.id}</h2>
-      //       <p><strong>Customer:</strong> ${customerName} (${customerEmail})</p>
-      //       <p><strong>Delivery Method:</strong> ${isPickup ? 'Store Pickup' : 'Shipping'}</p>
-      //       <p><strong>Total:</strong> $${totalAmount.toFixed(2)}</p>
-      //       <h3>Items to Pack:</h3>
-      //       <ul>
-      //         ${emailItems.map(item => `
-      //           <li>
-      //             ${item.name}
-      //             ${item.size ? `(Size: ${item.size})` : ''}
-      //             ${item.color ? `(Color: ${item.color})` : ''}
-      //             - Qty: ${item.quantity}
-      //           </li>
-      //         `).join('')}
-      //       </ul>
-      //       ${!isPickup ? `
-      //         <h3>Shipping Address:</h3>
-      //         <p>
-      //           ${metadata.addressLine1 || ''}<br>
-      //           ${metadata.addressLine2 ? metadata.addressLine2 + '<br>' : ''}
-      //           ${metadata.city || ''}, ${metadata.postalCode || ''}<br>
-      //           ${metadata.country || ''}
-      //         </p>
-      //       ` : '<p><strong>Pickup Order</strong></p>'}
-      //     `,
-      //   });
-      //   console.log('Admin packing email sent to:', adminEmail);
-      // } catch (adminEmailError) {
-      //   console.error('Failed to send admin packing email:', adminEmailError);
-      // }
-
-      // Revalidate admin pages to show new order and updated stock
-      revalidatePath('/admin/orders');
-      revalidatePath('/admin');
-      revalidatePath('/');
+      revalidatePath("/admin/orders");
+      revalidatePath("/admin");
+      revalidatePath("/");
     }
 
     return { received: true };
   } catch (error) {
-    console.error('Webhook error:', error);
+    console.error("Webhook error:", error);
     throw error;
   }
 }
 
 // Combo Settings Actions
-export async function updateComboSettings(comboDiscount2: number, comboDiscount3: number) {
+export async function updateComboSettings(
+  comboDiscount2: number,
+  comboDiscount3: number,
+) {
   try {
     if (!prisma.settings) {
-      console.warn('prisma.settings is undefined.');
-      return { success: false, error: 'Prisma client is outdated.' };
+      console.warn("prisma.settings is undefined.");
+      return { success: false, error: "Prisma client is outdated." };
     }
 
     await prisma.settings.upsert({
-      where: { id: 'global' },
+      where: { id: "global" },
       update: { comboDiscount2, comboDiscount3 },
-      create: { id: 'global', comboDiscount2, comboDiscount3 },
+      create: { id: "global", comboDiscount2, comboDiscount3 },
     });
-    
-    revalidatePath('/admin');
-    revalidatePath('/combos');
+
+    revalidatePath("/admin");
+    revalidatePath("/combos");
     return { success: true };
   } catch (error) {
-    console.error('Database Error:', error);
-    return { success: false, error: 'Failed to update combo settings.' };
+    console.error("Database Error:", error);
+    return { success: false, error: "Failed to update combo settings." };
   }
 }
 
@@ -1763,10 +2221,10 @@ export async function updateStoreSettings(data: {
 }) {
   try {
     await prisma.settings.upsert({
-      where: { id: 'global' },
+      where: { id: "global" },
       update: data,
-      create: { 
-        id: 'global', 
+      create: {
+        id: "global",
         comboDiscount2: data.comboDiscount2 ?? 10,
         comboDiscount3: data.comboDiscount3 ?? 15,
         estimatedDeliveryMin: data.estimatedDeliveryMin ?? 2,
@@ -1775,13 +2233,13 @@ export async function updateStoreSettings(data: {
         pickupAddress: data.pickupAddress ?? null,
       },
     });
-    revalidatePath('/admin/settings');
-    revalidatePath('/checkout');
-    revalidatePath('/');
+    revalidatePath("/admin/settings");
+    revalidatePath("/checkout");
+    revalidatePath("/");
     return { success: true };
   } catch (error) {
-    console.error('Database Error:', error);
-    return { success: false, error: 'Failed to update store settings.' };
+    console.error("Database Error:", error);
+    return { success: false, error: "Failed to update store settings." };
   }
 }
 
@@ -1793,13 +2251,28 @@ export async function createShippingRule(
 ) {
   try {
     if (Number.isNaN(minAmount) || Number.isNaN(price)) {
-      return { success: false, error: 'Please enter valid numeric values.' };
+      return { success: false, error: "Please enter valid numeric values." };
     }
-    if (maxAmount !== null && maxAmount !== undefined && Number.isNaN(maxAmount)) {
-      return { success: false, error: 'Please enter a valid maximum order amount.' };
+    if (
+      maxAmount !== null &&
+      maxAmount !== undefined &&
+      Number.isNaN(maxAmount)
+    ) {
+      return {
+        success: false,
+        error: "Please enter a valid maximum order amount.",
+      };
     }
-    if (maxAmount !== null && maxAmount !== undefined && maxAmount < minAmount) {
-      return { success: false, error: 'Maximum order amount must be greater than or equal to minimum amount.' };
+    if (
+      maxAmount !== null &&
+      maxAmount !== undefined &&
+      maxAmount < minAmount
+    ) {
+      return {
+        success: false,
+        error:
+          "Maximum order amount must be greater than or equal to minimum amount.",
+      };
     }
 
     const normalizedCategory = normalizeShippingCategoryInput(category);
@@ -1812,7 +2285,7 @@ export async function createShippingRule(
         maxAmount: maxAmount ?? null,
       } as Prisma.ShippingRuleCreateInput,
     });
-    revalidatePath('/admin/settings');
+    revalidatePath("/admin/settings");
     return {
       success: true,
       rule: {
@@ -1824,42 +2297,47 @@ export async function createShippingRule(
       },
     };
   } catch (error) {
-    console.error('Database Error:', error);
-    return { success: false, error: 'Failed to create shipping rule.' };
+    console.error("Database Error:", error);
+    return { success: false, error: "Failed to create shipping rule." };
   }
 }
 
 export async function deleteShippingRule(id: string) {
   try {
     await prisma.shippingRule.delete({ where: { id } });
-    revalidatePath('/admin/settings');
-    revalidatePath('/checkout');
+    revalidatePath("/admin/settings");
+    revalidatePath("/checkout");
     return { success: true };
   } catch (error) {
-    console.error('Database Error:', error);
-    return { success: false, error: 'Failed to delete shipping rule.' };
+    console.error("Database Error:", error);
+    return { success: false, error: "Failed to delete shipping rule." };
   }
 }
 
 export async function createHeroImage(formData: FormData) {
-  const imageFiles = formData.getAll('image') as File[];
-  const altText = formData.get('altText') as string;
-  const viewport = normalizeHeroViewportInput(formData.get('viewport') as string | null);
-  const sortOrderBase = parseInt(formData.get('sortOrder') as string || '0');
+  const imageFiles = formData.getAll("image") as File[];
+  const altText = formData.get("altText") as string;
+  const viewport = normalizeHeroViewportInput(
+    formData.get("viewport") as string | null,
+  );
+  const sortOrderBase = parseInt((formData.get("sortOrder") as string) || "0");
 
-  if (imageFiles.length === 0 || (imageFiles.length === 1 && imageFiles[0].size === 0)) {
-    return { success: false, error: 'At least one image is required' };
+  if (
+    imageFiles.length === 0 ||
+    (imageFiles.length === 1 && imageFiles[0].size === 0)
+  ) {
+    return { success: false, error: "At least one image is required" };
   }
 
   try {
     const createdImages = [];
-    
+
     for (let i = 0; i < imageFiles.length; i++) {
       const imageFile = imageFiles[i];
       if (imageFile.size === 0) continue;
 
-      const imageUrl = await uploadImageAsWebp(imageFile, 'hero');
-      
+      const imageUrl = await uploadImageAsWebp(imageFile, "hero");
+
       const image = await prisma.heroImage.create({
         data: {
           imageUrl,
@@ -1870,13 +2348,13 @@ export async function createHeroImage(formData: FormData) {
       });
       createdImages.push(image);
     }
-    
-    revalidatePath('/admin/settings');
-    revalidatePath('/');
+
+    revalidatePath("/admin/settings");
+    revalidatePath("/");
     return { success: true, images: createdImages };
   } catch (error) {
-    console.error('Error creating hero image:', error);
-    return { success: false, error: 'Failed to upload hero images.' };
+    console.error("Error creating hero image:", error);
+    return { success: false, error: "Failed to upload hero images." };
   }
 }
 
@@ -1893,24 +2371,27 @@ export async function deleteHeroImage(id: string) {
     // Delete the blob image
     await deleteBlobs(heroImage?.imageUrl);
 
-    revalidatePath('/admin/settings');
-    revalidatePath('/');
+    revalidatePath("/admin/settings");
+    revalidatePath("/");
     return { success: true };
   } catch (error) {
-    console.error('Database Error:', error);
-    return { success: false, error: 'Failed to delete hero image.' };
+    console.error("Database Error:", error);
+    return { success: false, error: "Failed to delete hero image." };
   }
 }
 
-export async function updateHeroImageViewport(id: string, viewport: HeroViewport) {
+export async function updateHeroImageViewport(
+  id: string,
+  viewport: HeroViewport,
+) {
   try {
     const normalizedViewport = normalizeHeroViewportInput(viewport);
     const image = await prisma.heroImage.update({
       where: { id },
       data: { viewport: normalizedViewport } as Prisma.HeroImageUpdateInput,
     });
-    revalidatePath('/admin/settings');
-    revalidatePath('/');
+    revalidatePath("/admin/settings");
+    revalidatePath("/");
     return {
       success: true,
       image: {
@@ -1919,51 +2400,56 @@ export async function updateHeroImageViewport(id: string, viewport: HeroViewport
       },
     };
   } catch (error) {
-    console.error('Database Error:', error);
-    return { success: false, error: 'Failed to update hero image viewport.' };
+    console.error("Database Error:", error);
+    return { success: false, error: "Failed to update hero image viewport." };
   }
 }
 
-export async function reorderHeroImages(orderedIds: { id: string; sortOrder: number }[]) {
+export async function reorderHeroImages(
+  orderedIds: { id: string; sortOrder: number }[],
+) {
   try {
     await prisma.$transaction(
       orderedIds.map(({ id, sortOrder }) =>
         prisma.heroImage.update({
           where: { id },
           data: { sortOrder },
-        })
-      )
+        }),
+      ),
     );
-    revalidatePath('/admin/settings');
-    revalidatePath('/');
+    revalidatePath("/admin/settings");
+    revalidatePath("/");
     return { success: true };
   } catch (error) {
-    console.error('Database Error:', error);
-    return { success: false, error: 'Failed to reorder hero images.' };
+    console.error("Database Error:", error);
+    return { success: false, error: "Failed to reorder hero images." };
   }
 }
 
 export async function uploadVariantImage(formData: FormData) {
-  const file = formData.get('image') as File;
-  if (!file || file.size === 0) return { success: false, error: 'No file' };
-  
+  const file = formData.get("image") as File;
+  if (!file || file.size === 0) return { success: false, error: "No file" };
+
   try {
-    const url = await uploadImageAsWebp(file, 'variants');
+    const url = await uploadImageAsWebp(file, "variants");
     return { success: true, url };
   } catch (e) {
     return {
       success: false,
-      error: e instanceof ImageUploadValidationError ? e.message : 'Upload failed',
+      error:
+        e instanceof ImageUploadValidationError ? e.message : "Upload failed",
     };
   }
 }
 
 // Coupon Actions
 export async function createCoupon(formData: FormData) {
-  const code = (formData.get('code') as string).toUpperCase();
-  const discountType = formData.get('discountType') as 'PERCENTAGE' | 'FIXED';
-  const discountValue = parseFloat(formData.get('discountValue') as string);
-  const minOrderAmount = formData.get('minOrderAmount') ? parseFloat(formData.get('minOrderAmount') as string) : null;
+  const code = (formData.get("code") as string).toUpperCase();
+  const discountType = formData.get("discountType") as "PERCENTAGE" | "FIXED";
+  const discountValue = parseFloat(formData.get("discountValue") as string);
+  const minOrderAmount = formData.get("minOrderAmount")
+    ? parseFloat(formData.get("minOrderAmount") as string)
+    : null;
 
   try {
     const coupon = await prisma.coupon.create({
@@ -1974,30 +2460,35 @@ export async function createCoupon(formData: FormData) {
         minOrderAmount,
       },
     });
-    revalidatePath('/admin/settings');
-    return { 
-      success: true, 
+    revalidatePath("/admin/settings");
+    return {
+      success: true,
       coupon: {
         ...coupon,
-        discountType: coupon.discountType as 'PERCENTAGE' | 'FIXED',
+        discountType: coupon.discountType as "PERCENTAGE" | "FIXED",
         discountValue: Number(coupon.discountValue),
-        minOrderAmount: coupon.minOrderAmount ? Number(coupon.minOrderAmount) : null,
-      }
+        minOrderAmount: coupon.minOrderAmount
+          ? Number(coupon.minOrderAmount)
+          : null,
+      },
     };
   } catch (error) {
-    console.error('Database Error:', error);
-    return { success: false, error: 'Failed to create coupon. Code might already exist.' };
+    console.error("Database Error:", error);
+    return {
+      success: false,
+      error: "Failed to create coupon. Code might already exist.",
+    };
   }
 }
 
 export async function deleteCoupon(id: string) {
   try {
     await prisma.coupon.delete({ where: { id } });
-    revalidatePath('/admin/settings');
+    revalidatePath("/admin/settings");
     return { success: true };
   } catch (error) {
-    console.error('Database Error:', error);
-    return { success: false, error: 'Failed to delete coupon.' };
+    console.error("Database Error:", error);
+    return { success: false, error: "Failed to delete coupon." };
   }
 }
 
@@ -2008,27 +2499,30 @@ export async function validateCoupon(code: string, orderAmount: number) {
     });
 
     if (!coupon) {
-      return { success: false, error: 'Invalid or expired coupon code.' };
+      return { success: false, error: "Invalid or expired coupon code." };
     }
 
     if (coupon.minOrderAmount && orderAmount < Number(coupon.minOrderAmount)) {
-      return { success: false, error: `Minimum order amount of $${coupon.minOrderAmount} required.` };
+      return {
+        success: false,
+        error: `Minimum order amount of $${coupon.minOrderAmount} required.`,
+      };
     }
 
     if (coupon.expiresAt && coupon.expiresAt < new Date()) {
-      return { success: false, error: 'This coupon has expired.' };
+      return { success: false, error: "This coupon has expired." };
     }
 
     return {
       success: true,
       coupon: {
         code: coupon.code,
-        discountType: coupon.discountType as 'PERCENTAGE' | 'FIXED',
+        discountType: coupon.discountType as "PERCENTAGE" | "FIXED",
         discountValue: Number(coupon.discountValue),
-      }
+      },
     };
   } catch (error) {
-    console.error('Database Error:', error);
-    return { success: false, error: 'Failed to validate coupon.' };
+    console.error("Database Error:", error);
+    return { success: false, error: "Failed to validate coupon." };
   }
 }

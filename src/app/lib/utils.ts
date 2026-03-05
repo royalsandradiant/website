@@ -1,5 +1,5 @@
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 /**
  * Combines clsx and tailwind-merge for class name logic
@@ -14,16 +14,19 @@ export function cn(...inputs: ClassValue[]) {
 export function slugify(str: string): string {
   return str
     .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove diacritics
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 /**
  * Build a slugPath from parent path and current slug
  */
-export function buildSlugPath(parentSlugPath: string | null, slug: string): string {
+export function buildSlugPath(
+  parentSlugPath: string | null,
+  slug: string,
+): string {
   return parentSlugPath ? `${parentSlugPath}/${slug}` : slug;
 }
 
@@ -31,9 +34,10 @@ export function buildSlugPath(parentSlugPath: string | null, slug: string): stri
  * Get the base URL for the application
  */
 export function getBaseUrl() {
-  const url = process.env.NEXT_PUBLIC_APP_URL || 
-              process.env.NEXT_PUBLIC_BASE_URL || 
-              (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  const url =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 
   if (url) {
     return url.startsWith("http") ? url : `https://${url}`;

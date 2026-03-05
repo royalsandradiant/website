@@ -1,10 +1,18 @@
-'use client';
+"use client";
 
-import { useActionState, useState } from 'react';
-import Link from 'next/link';
-import { createProduct, updateProduct, uploadVariantImage } from '@/app/lib/actions';
-import type { Product, ProductWithCategory, LeafCategory } from '@/app/lib/definitions';
-import { AVAILABLE_SIZES } from '@/app/lib/constants';
+import Link from "next/link";
+import { useActionState, useState } from "react";
+import {
+  createProduct,
+  updateProduct,
+  uploadVariantImage,
+} from "@/app/lib/actions";
+import { AVAILABLE_SIZES } from "@/app/lib/constants";
+import type {
+  LeafCategory,
+  Product,
+  ProductWithCategory,
+} from "@/app/lib/definitions";
 
 interface ProductVariantState {
   colorName: string;
@@ -22,31 +30,54 @@ interface ProductFormProps {
 }
 
 export default function ProductForm({ product, categories }: ProductFormProps) {
-  const initialState = { message: '', errors: {} };
+  const initialState = { message: "", errors: {} };
   const action = product ? updateProduct.bind(null, product.id) : createProduct;
   const [state, dispatch] = useActionState(action, initialState);
-  
-  const [selectedCategoryId, setSelectedCategoryId] = useState(product?.categoryId || '');
-  const [productSizes, setProductSizes] = useState<string[]>(product?.sizes || []);
+
+  const [selectedCategoryId, setSelectedCategoryId] = useState(
+    product?.categoryId || "",
+  );
+  const [productSizes, setProductSizes] = useState<string[]>(
+    product?.sizes || [],
+  );
   const [isOnSale, setIsOnSale] = useState(product?.isOnSale || false);
   const [isFeatured, setIsFeatured] = useState(product?.isFeatured || false);
   const [isCombo, setIsCombo] = useState(product?.isCombo || false);
-  const [currentImages, setCurrentImages] = useState<string[]>(product?.images || []);
-  const [variants, setVariants] = useState<ProductVariantState[]>(product?.variants?.map((v: any) => ({
-    colorName: v.colorName,
-    hexCode: v.hexCode || '',
-    price: v.price?.toString() || '',
-    stock: v.stock?.toString() || '',
-    sizes: v.sizes || [],
-    imageUrl: v.imageUrl || '',
-    images: v.images || [],
-  })) || []);
+  const [currentImages, setCurrentImages] = useState<string[]>(
+    product?.images || [],
+  );
+  const [variants, setVariants] = useState<ProductVariantState[]>(
+    product?.variants?.map((v: any) => ({
+      colorName: v.colorName,
+      hexCode: v.hexCode || "",
+      price: v.price?.toString() || "",
+      stock: v.stock?.toString() || "",
+      sizes: v.sizes || [],
+      imageUrl: v.imageUrl || "",
+      images: v.images || [],
+    })) || [],
+  );
 
   const addVariant = () => {
-    setVariants([...variants, { colorName: '', hexCode: '', price: '', stock: '', sizes: [], imageUrl: '', images: [] }]);
+    setVariants([
+      ...variants,
+      {
+        colorName: "",
+        hexCode: "",
+        price: "",
+        stock: "",
+        sizes: [],
+        imageUrl: "",
+        images: [],
+      },
+    ]);
   };
 
-  const updateVariant = (index: number, field: keyof ProductVariantState, value: any) => {
+  const updateVariant = (
+    index: number,
+    field: keyof ProductVariantState,
+    value: any,
+  ) => {
     const newVariants = [...variants];
     newVariants[index] = { ...newVariants[index], [field]: value };
     setVariants(newVariants);
@@ -58,10 +89,10 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
 
   const handleVariantImage = async (index: number, file: File) => {
     const formData = new FormData();
-    formData.append('image', file);
+    formData.append("image", file);
     const result = await uploadVariantImage(formData);
     if (result.success && result.url) {
-      updateVariant(index, 'imageUrl', result.url);
+      updateVariant(index, "imageUrl", result.url);
     }
   };
 
@@ -69,28 +100,38 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
     const newImages = [...variants[index].images];
     for (let i = 0; i < files.length; i++) {
       const formData = new FormData();
-      formData.append('image', files[i]);
+      formData.append("image", files[i]);
       const result = await uploadVariantImage(formData);
       if (result.success && result.url) {
         newImages.push(result.url);
       }
     }
-    updateVariant(index, 'images', newImages);
+    updateVariant(index, "images", newImages);
   };
 
   const removeVariantImage = (variantIndex: number, imageIndex: number) => {
-    const newImages = variants[variantIndex].images.filter((_, i) => i !== imageIndex);
-    updateVariant(variantIndex, 'images', newImages);
+    const newImages = variants[variantIndex].images.filter(
+      (_, i) => i !== imageIndex,
+    );
+    updateVariant(variantIndex, "images", newImages);
   };
 
   const removeCurrentImage = (url: string) => {
-    setCurrentImages(currentImages.filter(img => img !== url));
+    setCurrentImages(currentImages.filter((img) => img !== url));
   };
 
   return (
     <form action={dispatch} className="space-y-6">
-      <input type="hidden" name="variantsJson" value={JSON.stringify(variants)} />
-      <input type="hidden" name="sizesJson" value={JSON.stringify(productSizes)} />
+      <input
+        type="hidden"
+        name="variantsJson"
+        value={JSON.stringify(variants)}
+      />
+      <input
+        type="hidden"
+        name="sizesJson"
+        value={JSON.stringify(productSizes)}
+      />
       <div className="rounded-md bg-gray-50 p-4 md:p-6">
         {/* Product Name */}
         <div className="mb-4">
@@ -108,16 +149,19 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
           />
           <div id="name-error" aria-live="polite" aria-atomic="true">
             {state.errors?.name?.map((error: string) => (
-                <p key={error} className="mt-2 text-sm text-red-500">
-                  {error}
-                </p>
-              ))}
+              <p key={error} className="mt-2 text-sm text-red-500">
+                {error}
+              </p>
+            ))}
           </div>
         </div>
 
         {/* Category */}
         <div className="mb-4">
-          <label htmlFor="categoryId" className="mb-2 block text-sm font-medium">
+          <label
+            htmlFor="categoryId"
+            className="mb-2 block text-sm font-medium"
+          >
             Category <span className="text-red-500">*</span>
           </label>
           <select
@@ -136,10 +180,10 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
           </select>
           <div id="categoryId-error" aria-live="polite" aria-atomic="true">
             {state.errors?.categoryId?.map((error: string) => (
-                <p key={error} className="mt-2 text-sm text-red-500">
-                  {error}
-                </p>
-              ))}
+              <p key={error} className="mt-2 text-sm text-red-500">
+                {error}
+              </p>
+            ))}
           </div>
         </div>
 
@@ -157,12 +201,12 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
             placeholder="Enter price"
             className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
           />
-           <div id="price-error" aria-live="polite" aria-atomic="true">
+          <div id="price-error" aria-live="polite" aria-atomic="true">
             {state.errors?.price?.map((error: string) => (
-                <p key={error} className="mt-2 text-sm text-red-500">
-                  {error}
-                </p>
-              ))}
+              <p key={error} className="mt-2 text-sm text-red-500">
+                {error}
+              </p>
+            ))}
           </div>
         </div>
 
@@ -201,11 +245,14 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
               This product is on sale
             </label>
           </div>
-          
+
           {isOnSale && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="salePercentage" className="mb-2 block text-sm font-medium">
+                <label
+                  htmlFor="salePercentage"
+                  className="mb-2 block text-sm font-medium"
+                >
                   Sale Percentage (%)
                 </label>
                 <input
@@ -214,7 +261,7 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
                   type="number"
                   min="0"
                   max="100"
-                  defaultValue={product?.salePercentage || ''}
+                  defaultValue={product?.salePercentage || ""}
                   placeholder="e.g. 20"
                   className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
                 />
@@ -223,7 +270,10 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
                 </p>
               </div>
               <div>
-                <label htmlFor="salePrice" className="mb-2 block text-sm font-medium">
+                <label
+                  htmlFor="salePrice"
+                  className="mb-2 block text-sm font-medium"
+                >
                   OR Sale Price ($)
                 </label>
                 <input
@@ -231,7 +281,7 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
                   name="salePrice"
                   type="number"
                   step="0.01"
-                  defaultValue={product?.salePrice || ''}
+                  defaultValue={product?.salePrice || ""}
                   placeholder="Enter fixed sale price"
                   className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
                 />
@@ -259,7 +309,8 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
             </label>
           </div>
           <p className="mt-1 text-xs text-gray-500 ml-7">
-            Products marked for combo will appear on the Combos page where customers can select 2 or 3 items for a bundle deal
+            Products marked for combo will appear on the Combos page where
+            customers can select 2 or 3 items for a bundle deal
           </p>
         </div>
 
@@ -276,12 +327,12 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
             placeholder="Enter stock quantity"
             className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
           />
-           <div id="stock-error" aria-live="polite" aria-atomic="true">
+          <div id="stock-error" aria-live="polite" aria-atomic="true">
             {state.errors?.stock?.map((error: string) => (
-                <p key={error} className="mt-2 text-sm text-red-500">
-                  {error}
-                </p>
-              ))}
+              <p key={error} className="mt-2 text-sm text-red-500">
+                {error}
+              </p>
+            ))}
           </div>
         </div>
 
@@ -297,15 +348,15 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
                 type="button"
                 onClick={() => {
                   if (productSizes.includes(size)) {
-                    setProductSizes(productSizes.filter(s => s !== size));
+                    setProductSizes(productSizes.filter((s) => s !== size));
                   } else {
                     setProductSizes([...productSizes, size]);
                   }
                 }}
                 className={`px-3 py-1 rounded-md border text-sm transition-colors ${
                   productSizes.includes(size)
-                    ? 'bg-blue-500 text-white border-blue-500'
-                    : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
+                    ? "bg-blue-500 text-white border-blue-500"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-blue-300"
                 }`}
               >
                 {size}
@@ -313,44 +364,117 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
             ))}
           </div>
           <p className="mt-2 text-xs text-gray-500">
-            Select sizes available for this product. These will be the default sizes for all variants unless overridden.
+            Select sizes available for this product. These will be the default
+            sizes for all variants unless overridden.
           </p>
         </div>
 
         {/* Color Variants Section */}
         <div className="mb-4 p-4 border border-dashed border-gray-300 rounded-lg bg-white">
-          <h3 className="text-sm font-bold mb-4 uppercase tracking-wider text-gray-500">Color Variants</h3>
+          <h3 className="text-sm font-bold mb-4 uppercase tracking-wider text-gray-500">
+            Color Variants
+          </h3>
           <div className="space-y-4">
             {variants.map((v, idx) => (
-              <div key={idx} className="p-3 border border-gray-100 rounded bg-gray-50 relative">
-                <button type="button" onClick={() => removeVariant(idx)} className="absolute top-2 right-2 text-red-400 hover:text-red-600">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              <div
+                key={idx}
+                className="p-3 border border-gray-100 rounded bg-gray-50 relative"
+              >
+                <button
+                  type="button"
+                  onClick={() => removeVariant(idx)}
+                  className="absolute top-2 right-2 text-red-400 hover:text-red-600"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
                 </button>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Color Name</label>
-                    <input type="text" value={v.colorName} onChange={(e) => updateVariant(idx, 'colorName', e.target.value)} className="w-full text-xs p-2 border rounded" placeholder="e.g. Ruby Red" />
+                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">
+                      Color Name
+                    </label>
+                    <input
+                      type="text"
+                      value={v.colorName}
+                      onChange={(e) =>
+                        updateVariant(idx, "colorName", e.target.value)
+                      }
+                      className="w-full text-xs p-2 border rounded"
+                      placeholder="e.g. Ruby Red"
+                    />
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Hex Code (Optional)</label>
+                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">
+                      Hex Code (Optional)
+                    </label>
                     <div className="flex gap-2 items-center">
-                      <input type="color" value={v.hexCode || '#000000'} onChange={(e) => updateVariant(idx, 'hexCode', e.target.value)} className="w-8 h-8 rounded border-0 p-0 overflow-hidden" />
-                      <input type="text" value={v.hexCode} onChange={(e) => updateVariant(idx, 'hexCode', e.target.value)} className="flex-1 text-xs p-2 border rounded" placeholder="#FF0000" />
+                      <input
+                        type="color"
+                        value={v.hexCode || "#000000"}
+                        onChange={(e) =>
+                          updateVariant(idx, "hexCode", e.target.value)
+                        }
+                        className="w-8 h-8 rounded border-0 p-0 overflow-hidden"
+                      />
+                      <input
+                        type="text"
+                        value={v.hexCode}
+                        onChange={(e) =>
+                          updateVariant(idx, "hexCode", e.target.value)
+                        }
+                        className="flex-1 text-xs p-2 border rounded"
+                        placeholder="#FF0000"
+                      />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Price (Optional)</label>
-                    <input type="number" step="0.01" value={v.price} onChange={(e) => updateVariant(idx, 'price', e.target.value)} className="w-full text-xs p-2 border rounded" placeholder="Leave empty for base price" />
+                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">
+                      Price (Optional)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={v.price}
+                      onChange={(e) =>
+                        updateVariant(idx, "price", e.target.value)
+                      }
+                      className="w-full text-xs p-2 border rounded"
+                      placeholder="Leave empty for base price"
+                    />
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Stock</label>
-                    <input type="number" value={v.stock} onChange={(e) => updateVariant(idx, 'stock', e.target.value)} className="w-full text-xs p-2 border rounded" placeholder="0" />
+                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">
+                      Stock
+                    </label>
+                    <input
+                      type="number"
+                      value={v.stock}
+                      onChange={(e) =>
+                        updateVariant(idx, "stock", e.target.value)
+                      }
+                      className="w-full text-xs p-2 border rounded"
+                      placeholder="0"
+                    />
                   </div>
                 </div>
-                
+
                 {/* Variant Sizes */}
                 <div className="mt-3">
-                  <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Sizes for this Color</label>
+                  <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">
+                    Sizes for this Color
+                  </label>
                   <div className="flex flex-wrap gap-1">
                     {AVAILABLE_SIZES.map((size) => (
                       <button
@@ -359,14 +483,14 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
                         onClick={() => {
                           const currentSizes = v.sizes || [];
                           const newSizes = currentSizes.includes(size)
-                            ? currentSizes.filter(s => s !== size)
+                            ? currentSizes.filter((s) => s !== size)
                             : [...currentSizes, size];
-                          updateVariant(idx, 'sizes', newSizes);
+                          updateVariant(idx, "sizes", newSizes);
                         }}
                         className={`px-2 py-0.5 rounded border text-[10px] transition-colors ${
                           (v.sizes || []).includes(size)
-                            ? 'bg-blue-500 text-white border-blue-500'
-                            : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
+                            ? "bg-blue-500 text-white border-blue-500"
+                            : "bg-white text-gray-700 border-gray-200 hover:border-blue-300"
                         }`}
                       >
                         {size}
@@ -377,27 +501,72 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
 
                 <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Variant Thumbnail (Swatch)</label>
-                    <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && handleVariantImage(idx, e.target.files[0])} className="text-[10px]" />
+                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">
+                      Variant Thumbnail (Swatch)
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) =>
+                        e.target.files?.[0] &&
+                        handleVariantImage(idx, e.target.files[0])
+                      }
+                      className="text-[10px]"
+                    />
                     {v.imageUrl && (
                       <div className="mt-2 h-10 w-10 rounded border overflow-hidden bg-white">
-                        <img src={v.imageUrl} alt="Variant" className="h-full w-full object-cover" />
+                        <img
+                          src={v.imageUrl}
+                          alt="Variant"
+                          className="h-full w-full object-cover"
+                        />
                       </div>
                     )}
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">Clothing Pictures for this Variant</label>
-                    <input type="file" accept="image/*" multiple onChange={(e) => e.target.files && handleVariantImages(idx, e.target.files)} className="text-[10px]" />
+                    <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">
+                      Clothing Pictures for this Variant
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) =>
+                        e.target.files &&
+                        handleVariantImages(idx, e.target.files)
+                      }
+                      className="text-[10px]"
+                    />
                     <div className="mt-2 flex flex-wrap gap-2">
                       {v.images.map((img, imgIdx) => (
-                        <div key={imgIdx} className="relative h-10 w-10 rounded border overflow-hidden bg-white group">
-                          <img src={img} alt="Variant clothing" className="h-full w-full object-cover" />
-                          <button 
-                            type="button" 
+                        <div
+                          key={imgIdx}
+                          className="relative h-10 w-10 rounded border overflow-hidden bg-white group"
+                        >
+                          <img
+                            src={img}
+                            alt="Variant clothing"
+                            className="h-full w-full object-cover"
+                          />
+                          <button
+                            type="button"
                             onClick={() => removeVariantImage(idx, imgIdx)}
                             className="absolute inset-0 flex items-center justify-center bg-red-500/80 text-white opacity-0 group-hover:opacity-100 transition-opacity"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M18 6 6 18" />
+                              <path d="m6 6 12 12" />
+                            </svg>
                           </button>
                         </div>
                       ))}
@@ -406,7 +575,11 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
                 </div>
               </div>
             ))}
-            <button type="button" onClick={addVariant} className="w-full py-2 border-2 border-dashed border-gray-200 rounded text-xs font-bold text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors">
+            <button
+              type="button"
+              onClick={addVariant}
+              className="w-full py-2 border-2 border-dashed border-gray-200 rounded text-xs font-bold text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors"
+            >
               + ADD COLOR VARIANT
             </button>
           </div>
@@ -414,7 +587,10 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
 
         {/* Description */}
         <div className="mb-4">
-          <label htmlFor="description" className="mb-2 block text-sm font-medium">
+          <label
+            htmlFor="description"
+            className="mb-2 block text-sm font-medium"
+          >
             Description <span className="text-red-500">*</span>
           </label>
           <textarea
@@ -425,12 +601,12 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
             className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
             rows={4}
           />
-           <div id="description-error" aria-live="polite" aria-atomic="true">
+          <div id="description-error" aria-live="polite" aria-atomic="true">
             {state.errors?.description?.map((error: string) => (
-                <p key={error} className="mt-2 text-sm text-red-500">
-                  {error}
-                </p>
-              ))}
+              <p key={error} className="mt-2 text-sm text-red-500">
+                {error}
+              </p>
+            ))}
           </div>
         </div>
 
@@ -450,13 +626,22 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
             <div className="mt-2">
               <p className="text-xs text-gray-500 mb-1">Current size chart:</p>
               <div className="h-20 w-20 rounded border overflow-hidden bg-white">
-                <img src={product.sizeChartUrl} alt="Size Chart" className="h-full w-full object-cover" />
+                <img
+                  src={product.sizeChartUrl}
+                  alt="Size Chart"
+                  className="h-full w-full object-cover"
+                />
               </div>
-              <input type="hidden" name="existingSizeChartUrl" value={product.sizeChartUrl} />
+              <input
+                type="hidden"
+                name="existingSizeChartUrl"
+                value={product.sizeChartUrl}
+              />
             </div>
           )}
           <p className="mt-1 text-xs text-gray-500">
-            Upload an image of the size chart. This will show a &quot;Size Guide&quot; link on the product page.
+            Upload an image of the size chart. This will show a &quot;Size
+            Guide&quot; link on the product page.
           </p>
         </div>
 
@@ -474,37 +659,64 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
             className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
           />
           {currentImages.length > 0 && (
-              <div className="mt-4 space-y-2">
-                <p className="text-sm font-medium text-gray-700">Existing images ({currentImages.length}):</p>
-                <div className="flex flex-wrap gap-3">
-                  {currentImages.map((img, i) => (
-                    <div key={i} className="relative group h-20 w-20 overflow-hidden rounded-md border border-gray-200 shadow-sm">
-                      <img src={img} alt={`Product ${i}`} className="h-full w-full object-cover transition-transform group-hover:scale-110" />
-                      <button
-                        type="button"
-                        onClick={() => removeCurrentImage(img)}
-                        className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                        title="Remove image"
-                        aria-label="Remove image"
+            <div className="mt-4 space-y-2">
+              <p className="text-sm font-medium text-gray-700">
+                Existing images ({currentImages.length}):
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {currentImages.map((img, i) => (
+                  <div
+                    key={i}
+                    className="relative group h-20 w-20 overflow-hidden rounded-md border border-gray-200 shadow-sm"
+                  >
+                    <img
+                      src={img}
+                      alt={`Product ${i}`}
+                      className="h-full w-full object-cover transition-transform group-hover:scale-110"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeCurrentImage(img)}
+                      className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                      title="Remove image"
+                      aria-label="Remove image"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                      </button>
-                      <input type="hidden" name="existingImages" value={img} />
-                    </div>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-500 italic mt-1">Note: Images are only removed when you click &quot;Update Product&quot;</p>
+                        <path d="M18 6 6 18" />
+                        <path d="m6 6 12 12" />
+                      </svg>
+                    </button>
+                    <input type="hidden" name="existingImages" value={img} />
+                  </div>
+                ))}
               </div>
+              <p className="text-xs text-gray-500 italic mt-1">
+                Note: Images are only removed when you click &quot;Update
+                Product&quot;
+              </p>
+            </div>
           )}
-          <p className="mt-2 text-xs text-gray-400">Select multiple images to add more</p>
+          <p className="mt-2 text-xs text-gray-400">
+            Select multiple images to add more
+          </p>
         </div>
 
         {/* Global Error Message */}
-         <div id="form-error" aria-live="polite" aria-atomic="true">
-            {state.message && (
-                <p className="mt-2 text-sm text-red-500">{state.message}</p>
-            )}
-          </div>
+        <div id="form-error" aria-live="polite" aria-atomic="true">
+          {state.message && (
+            <p className="mt-2 text-sm text-red-500">{state.message}</p>
+          )}
+        </div>
       </div>
       <div className="mt-6 flex justify-end gap-4">
         <Link
@@ -517,7 +729,7 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
           type="submit"
           className="flex h-10 items-center rounded-lg bg-blue-500 px-4 text-sm font-medium text-white transition-colors hover:bg-blue-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 active:bg-blue-600 aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
         >
-          {product ? 'Update Product' : 'Create Product'}
+          {product ? "Update Product" : "Create Product"}
         </button>
       </div>
     </form>

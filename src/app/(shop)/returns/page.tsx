@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { motion } from 'motion/react';
+import { motion } from "motion/react";
 
 export default function ReturnsPage() {
   return (
@@ -20,7 +20,8 @@ export default function ReturnsPage() {
             Return Policy
           </h1>
           <p className="text-lg text-foreground/70 leading-relaxed">
-            We take pride in the quality of our jewelry. Please review our return policy carefully before making a purchase.
+            We take pride in the quality of our jewelry. Please review our
+            return policy carefully before making a purchase.
           </p>
         </div>
       </motion.section>
@@ -36,11 +37,14 @@ export default function ReturnsPage() {
             transition={{ duration: 0.6 }}
             className="mb-12 bg-primary/5 border border-primary/20 rounded-lg p-8"
           >
-            <h2 className="font-display text-2xl text-primary mb-4">All Sales Are Final</h2>
+            <h2 className="font-display text-2xl text-primary mb-4">
+              All Sales Are Final
+            </h2>
             <p className="text-foreground/70 leading-relaxed">
-              At Royals and Radiant, <strong>all sales are final</strong>. Due to the nature of our products 
-              and for hygiene and safety reasons, we do not accept returns or exchanges on any items once 
-              they have been purchased and delivered.
+              At Royals and Radiant, <strong>all sales are final</strong>. Due
+              to the nature of our products and for hygiene and safety reasons,
+              we do not accept returns or exchanges on any items once they have
+              been purchased and delivered.
             </p>
           </motion.div>
 
@@ -56,7 +60,8 @@ export default function ReturnsPage() {
               Our Quality Commitment
             </h2>
             <p className="text-foreground/70 leading-relaxed mb-4">
-              We understand that purchasing jewelry online requires trust. That is why we:
+              We understand that purchasing jewelry online requires trust. That
+              is why we:
             </p>
             <ul className="space-y-3 text-foreground/70">
               <li className="flex items-start gap-3">
@@ -65,15 +70,23 @@ export default function ReturnsPage() {
               </li>
               <li className="flex items-start gap-3">
                 <span className="text-primary mt-1">✦</span>
-                <span>Provide detailed product descriptions and high-quality images</span>
+                <span>
+                  Provide detailed product descriptions and high-quality images
+                </span>
               </li>
               <li className="flex items-start gap-3">
                 <span className="text-primary mt-1">✦</span>
-                <span>Use secure, protective packaging to ensure items arrive in perfect condition</span>
+                <span>
+                  Use secure, protective packaging to ensure items arrive in
+                  perfect condition
+                </span>
               </li>
               <li className="flex items-start gap-3">
                 <span className="text-primary mt-1">✦</span>
-                <span>Offer responsive customer service to answer any questions before purchase</span>
+                <span>
+                  Offer responsive customer service to answer any questions
+                  before purchase
+                </span>
               </li>
             </ul>
           </motion.div>
@@ -90,19 +103,24 @@ export default function ReturnsPage() {
               Damaged or Defective Items
             </h2>
             <p className="text-foreground/70 leading-relaxed mb-4">
-              While all sales are final, we stand behind the quality of our products. If you receive an 
-              item that is damaged or defective upon delivery, please contact us within 48 hours of receipt 
-              with photos of the damage.
+              While all sales are final, we stand behind the quality of our
+              products. If you receive an item that is damaged or defective upon
+              delivery, please contact us within 48 hours of receipt with photos
+              of the damage.
             </p>
             <div className="bg-secondary/50 p-6 rounded-lg">
               <p className="text-foreground/70 text-sm">
-                <strong>To report a damaged item:</strong><br />
-                Email us at{' '}
-                <a href="mailto:royalsandradiant@gmail.com" className="text-primary hover:underline">
+                <strong>To report a damaged item:</strong>
+                <br />
+                Email us at{" "}
+                <a
+                  href="mailto:royalsandradiant@gmail.com"
+                  className="text-primary hover:underline"
+                >
                   royalsandradiant@gmail.com
-                </a>{' '}
-                with your order number and clear photos of the damage. We will review your case and 
-                respond within 2 business days.
+                </a>{" "}
+                with your order number and clear photos of the damage. We will
+                review your case and respond within 2 business days.
               </p>
             </div>
           </motion.div>
@@ -119,12 +137,17 @@ export default function ReturnsPage() {
               Order Cancellations
             </h2>
             <p className="text-foreground/70 leading-relaxed">
-              Orders may be cancelled within 2 hours of placement if they have not yet been processed 
-              for shipping. To request a cancellation, contact us immediately at{' '}
-              <a href="tel:+2012890813" className="text-primary hover:underline">
+              Orders may be cancelled within 2 hours of placement if they have
+              not yet been processed for shipping. To request a cancellation,
+              contact us immediately at{" "}
+              <a
+                href="tel:+2012890813"
+                className="text-primary hover:underline"
+              >
                 +1 (201) 289-0813
-              </a>{' '}
-              during business hours. Once an order has been processed and shipped, it cannot be cancelled.
+              </a>{" "}
+              during business hours. Once an order has been processed and
+              shipped, it cannot be cancelled.
             </p>
           </motion.div>
 

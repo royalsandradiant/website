@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Image from 'next/image';
-import { useCart } from '@/app/lib/cart-context';
-import { Check, Plus, ShoppingBag, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import type { Product } from '@/app/lib/definitions';
-import { inferShippingCategoryFromProduct } from '@/app/lib/shipping';
+import { Check, Plus, ShoppingBag, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import Image from "next/image";
+import { useState } from "react";
+import { useCart } from "@/app/lib/cart-context";
+import type { Product } from "@/app/lib/definitions";
+import { inferShippingCategoryFromProduct } from "@/app/lib/shipping";
 
 interface ComboSelectorProps {
   products: Product[];
@@ -14,13 +14,18 @@ interface ComboSelectorProps {
   comboDiscount3: number;
 }
 
-export default function ComboSelector({ products, comboDiscount2, comboDiscount3 }: ComboSelectorProps) {
+export default function ComboSelector({
+  products,
+  comboDiscount2,
+  comboDiscount3,
+}: ComboSelectorProps) {
   const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
   const [isAdded, setIsAdded] = useState(false);
   const [addingId, setAddingId] = useState<string | null>(null);
   const { addItem } = useCart();
 
-  const currentDiscount = selectedProducts.length === 2 ? comboDiscount2 : comboDiscount3;
+  const currentDiscount =
+    selectedProducts.length === 2 ? comboDiscount2 : comboDiscount3;
 
   const totalOriginalPrice = selectedProducts.reduce((sum, p) => {
     const price = p.isOnSale && p.salePrice ? p.salePrice : p.price;
@@ -31,22 +36,23 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
   const currentComboPrice = totalOriginalPrice - savings;
 
   const toggleProduct = (product: Product) => {
-    if (selectedProducts.find(p => p.id === product.id)) {
-      setSelectedProducts(selectedProducts.filter(p => p.id !== product.id));
+    if (selectedProducts.find((p) => p.id === product.id)) {
+      setSelectedProducts(selectedProducts.filter((p) => p.id !== product.id));
     } else if (selectedProducts.length < 3) {
       setSelectedProducts([...selectedProducts, product]);
     }
   };
 
   const removeProduct = (productId: string) => {
-    setSelectedProducts(selectedProducts.filter(p => p.id !== productId));
+    setSelectedProducts(selectedProducts.filter((p) => p.id !== productId));
   };
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    const effectivePrice = product.isOnSale && product.salePrice ? product.salePrice : product.price;
+
+    const effectivePrice =
+      product.isOnSale && product.salePrice ? product.salePrice : product.price;
 
     const shippingCategory = inferShippingCategoryFromProduct(product);
 
@@ -55,7 +61,8 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
       name: product.name,
       price: effectivePrice,
       quantity: 1,
-      imagePath: product.images && product.images.length > 0 ? product.images[0] : '',
+      imagePath:
+        product.images && product.images.length > 0 ? product.images[0] : "",
       shippingCategory,
     });
 
@@ -68,7 +75,7 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
 
     // Generate a unique combo ID for tracking
     const comboId = `combo-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-    
+
     // Calculate the price per item (distribute combo price evenly)
     const pricePerItem = currentComboPrice / selectedProducts.length;
 
@@ -80,7 +87,8 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
         name: `${product.name} (Combo ${index + 1}/${selectedProducts.length})`,
         price: pricePerItem,
         quantity: 1,
-        imagePath: product.images && product.images.length > 0 ? product.images[0] : '',
+        imagePath:
+          product.images && product.images.length > 0 ? product.images[0] : "",
         shippingCategory,
         comboId,
         originalProductId: product.id,
@@ -95,9 +103,9 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
     }).format(price);
   };
 
@@ -110,7 +118,7 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
             <h3 className="font-display text-lg text-foreground mb-2">
               Your Combo Selection ({selectedProducts.length}/3)
             </h3>
-            
+
             {/* Selected Products Preview */}
             <div className="flex gap-2 min-h-[60px]">
               {[0, 1, 2].map((index) => {
@@ -119,13 +127,13 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
                   <div
                     key={index}
                     className={`relative w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${
-                      product ? 'border-primary' : 'border-dashed border-border'
+                      product ? "border-primary" : "border-dashed border-border"
                     }`}
                   >
                     {product ? (
                       <>
                         <Image
-                          src={product.images?.[0] || ''}
+                          src={product.images?.[0] || ""}
                           alt={product.name}
                           fill
                           className="object-cover"
@@ -178,10 +186,10 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
               disabled={selectedProducts.length < 2 || isAdded}
               className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${
                 selectedProducts.length < 2
-                  ? 'bg-foreground/10 text-foreground/40 cursor-not-allowed'
+                  ? "bg-foreground/10 text-foreground/40 cursor-not-allowed"
                   : isAdded
-                  ? 'bg-green-600 text-white'
-                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    ? "bg-green-600 text-white"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90"
               }`}
             >
               {isAdded ? (
@@ -205,9 +213,12 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
       {/* Products Grid */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:gap-6">
         {products.map((product) => {
-          const isSelected = selectedProducts.find(p => p.id === product.id);
+          const isSelected = selectedProducts.find((p) => p.id === product.id);
           const isDisabled = !isSelected && selectedProducts.length >= 3;
-          const displayPrice = product.isOnSale && product.salePrice ? product.salePrice : product.price;
+          const displayPrice =
+            product.isOnSale && product.salePrice
+              ? product.salePrice
+              : product.price;
           const isOutOfStock = product.stock <= 0;
           const isAdding = addingId === product.id;
 
@@ -221,18 +232,26 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
               <div
                 className={`group relative w-full text-left rounded-xl overflow-hidden border-2 transition-all ${
                   isSelected
-                    ? 'border-primary ring-2 ring-primary/20 scale-[1.02]'
+                    ? "border-primary ring-2 ring-primary/20 scale-[1.02]"
                     : isDisabled || isOutOfStock
-                    ? 'border-border opacity-50'
-                    : 'border-border hover:border-primary/50 hover:shadow-md'
+                      ? "border-border opacity-50"
+                      : "border-border hover:border-primary/50 hover:shadow-md"
                 }`}
               >
                 <button
                   type="button"
-                  onClick={() => !isOutOfStock && !(isDisabled && !isSelected) && toggleProduct(product)}
+                  onClick={() =>
+                    !isOutOfStock &&
+                    !(isDisabled && !isSelected) &&
+                    toggleProduct(product)
+                  }
                   disabled={isOutOfStock || (isDisabled && !isSelected)}
                   className="absolute inset-0 z-10"
-                  aria-label={isSelected ? `Remove ${product.name} from combo` : `Add ${product.name} to combo`}
+                  aria-label={
+                    isSelected
+                      ? `Remove ${product.name} from combo`
+                      : `Add ${product.name} to combo`
+                  }
                 />
                 {/* Image */}
                 <div className="relative aspect-square bg-secondary">
@@ -246,10 +265,12 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <span className="font-display text-2xl text-foreground/10">RR</span>
+                      <span className="font-display text-2xl text-foreground/10">
+                        RR
+                      </span>
                     </div>
                   )}
-                  
+
                   {/* Selection Indicator */}
                   <AnimatePresence>
                     {isSelected && (
@@ -267,23 +288,33 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
                   {/* Quick Add Overlay */}
                   <div className="pointer-events-none absolute bottom-0 left-0 z-20 flex w-full translate-y-0 items-center justify-between gap-2 bg-white/90 px-3 py-2 backdrop-blur-sm transition-transform duration-300 lg:translate-y-full lg:group-hover:translate-y-0">
                     <span className="font-sans text-[9px] font-bold tracking-widest text-foreground uppercase truncate">
-                      {isSelected ? 'Selected for Combo' : 'Tap to Add Combo'}
+                      {isSelected ? "Selected for Combo" : "Tap to Add Combo"}
                     </span>
                     <button
                       type="button"
                       onClick={(e) => handleAddToCart(e, product)}
                       disabled={isOutOfStock || isAdding}
                       className={`pointer-events-auto relative z-30 flex h-8 w-8 items-center justify-center rounded-full transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 outline-none ${
-                        isAdding 
-                          ? 'bg-green-600 text-white' 
-                          : isOutOfStock 
-                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                            : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                        isAdding
+                          ? "bg-green-600 text-white"
+                          : isOutOfStock
+                            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                            : "bg-primary text-primary-foreground hover:bg-primary/90"
                       }`}
-                      aria-label={isAdding ? "Added to cart" : isOutOfStock ? "Out of stock" : `Add ${product.name} to cart`}
+                      aria-label={
+                        isAdding
+                          ? "Added to cart"
+                          : isOutOfStock
+                            ? "Out of stock"
+                            : `Add ${product.name} to cart`
+                      }
                       title="Add to Cart"
                     >
-                      {isAdding ? <Check className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
+                      {isAdding ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <ShoppingBag className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
 
@@ -327,7 +358,9 @@ export default function ComboSelector({ products, comboDiscount2, comboDiscount3
 
       {products.length === 0 && (
         <div className="text-center py-16">
-          <p className="text-foreground/60">No combo products available at the moment.</p>
+          <p className="text-foreground/60">
+            No combo products available at the moment.
+          </p>
         </div>
       )}
     </div>

@@ -74,7 +74,7 @@ export type ProductWithCategory = Product & {
 export type Coupon = {
   id: string;
   code: string;
-  discountType: 'PERCENTAGE' | 'FIXED';
+  discountType: "PERCENTAGE" | "FIXED";
   discountValue: number;
   minOrderAmount: number | null;
   isActive: boolean;
@@ -83,8 +83,8 @@ export type Coupon = {
   updatedAt: Date;
 };
 
-export type HeroViewport = 'desktop' | 'mobile';
-export type ShippingCategory = 'clothes' | 'jewelry';
+export type HeroViewport = "desktop" | "mobile";
+export type ShippingCategory = "clothes" | "jewelry";
 
 // Form state types
 export type State = {
@@ -141,9 +141,3 @@ export type CategoryState = {
   };
   message?: string | null;
 };
-
-
-
-
-
-

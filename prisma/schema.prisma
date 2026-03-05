@@ -108,23 +108,33 @@ model Product {
   variants    ProductVariant[]
 }
 
+enum OrderStatus {
+  PENDING
+  SHIPPED
+  DELIVERED
+}
+
 model Order {
-  id            String      @id @default(cuid())
-  customerName  String
-  customerEmail String
-  addressLine1  String
-  addressLine2  String?
-  city          String
-  postalCode    String
-  country       String
-  totalAmount   Decimal
-  status        String      @default("PENDING") // PENDING, COMPLETED, CANCELLED
-  paymentId     String? // Stripe Payment ID
-  isPickup      Boolean     @default(false)
-  couponCode    String?
-  discountAmount Decimal?
-  createdAt     DateTime    @default(now())
-  items         OrderItem[]
+  id               String      @id @default(cuid())
+  customerName     String
+  customerEmail    String
+  addressLine1     String
+  addressLine2     String?
+  city             String
+  postalCode       String
+  country          String
+  totalAmount      Decimal
+  status           OrderStatus @default(PENDING)
+  trackingNumber   String?
+  shippingAddress  Json?
+  stripeCustomerId String?
+  paymentIntentId  String?     @unique
+  paymentId        String? // Legacy Stripe payment intent field (kept for compatibility)
+  isPickup         Boolean     @default(false)
+  couponCode       String?
+  discountAmount   Decimal?
+  createdAt        DateTime    @default(now())
+  items            OrderItem[]
 }
 
 model OrderItem {

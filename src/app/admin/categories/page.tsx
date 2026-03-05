@@ -1,7 +1,7 @@
-import Link from 'next/link';
-import { Plus } from 'lucide-react';
-import { fetchAllCategoryTree } from '@/app/lib/data';
-import CategoryTree from '@/app/ui/admin/category-tree';
+import { Plus } from "lucide-react";
+import Link from "next/link";
+import { fetchAllCategoryTree } from "@/app/lib/data";
+import CategoryTree from "@/app/ui/admin/category-tree";
 
 export default async function CategoriesPage() {
   const categories = await fetchAllCategoryTree();
@@ -27,7 +27,12 @@ export default async function CategoriesPage() {
       <div className="bg-white rounded-lg border shadow-sm">
         <div className="p-4 border-b bg-gray-50">
           <div className="text-sm text-gray-500">
-            Drag the <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-gray-200 rounded text-xs font-medium">⋮⋮</span> handle to reorder categories. Categories are sorted within their level.
+            Drag the{" "}
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-gray-200 rounded text-xs font-medium">
+              ⋮⋮
+            </span>{" "}
+            handle to reorder categories. Categories are sorted within their
+            level.
           </div>
         </div>
         <div className="p-4">

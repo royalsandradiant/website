@@ -1,14 +1,16 @@
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
-import { fetchCategoryById, fetchAllCategoriesFlat } from '@/app/lib/data';
-import CategoryForm from '@/app/ui/admin/category-form';
+import { ChevronLeft } from "lucide-react";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { fetchAllCategoriesFlat, fetchCategoryById } from "@/app/lib/data";
+import CategoryForm from "@/app/ui/admin/category-form";
 
 interface EditCategoryPageProps {
   params: Promise<{ id: string }>;
 }
 
-export default async function EditCategoryPage({ params }: EditCategoryPageProps) {
+export default async function EditCategoryPage({
+  params,
+}: EditCategoryPageProps) {
   const { id } = await params;
   const [category, allCategories] = await Promise.all([
     fetchCategoryById(id),
@@ -51,10 +53,7 @@ export default async function EditCategoryPage({ params }: EditCategoryPageProps
       </div>
 
       <div className="max-w-2xl">
-        <CategoryForm 
-          category={categoryData} 
-          allCategories={allCategories}
-        />
+        <CategoryForm category={categoryData} allCategories={allCategories} />
       </div>
     </div>
   );

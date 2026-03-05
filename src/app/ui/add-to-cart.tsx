@@ -1,12 +1,18 @@
 "use client";
 
-import { useCart } from "@/app/lib/cart-context";
+import { Check, ShoppingBag } from "lucide-react";
 import { useState } from "react";
-import { ShoppingBag, Check } from "lucide-react";
-import { Product } from "@/app/lib/definitions";
+import { useCart } from "@/app/lib/cart-context";
+import type { Product } from "@/app/lib/definitions";
 import { inferShippingCategoryFromProduct } from "@/app/lib/shipping";
 
-export default function AddToCart({ product, onVariantChange }: { product: Product, onVariantChange?: (variant: any) => void }) {
+export default function AddToCart({
+  product,
+  onVariantChange,
+}: {
+  product: Product;
+  onVariantChange?: (variant: any) => void;
+}) {
   const { addItem } = useCart();
   const [isAdded, setIsAdded] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -16,7 +22,11 @@ export default function AddToCart({ product, onVariantChange }: { product: Produ
   const handleVariantSelect = (variant: any) => {
     setSelectedVariant(variant);
     // Reset size if the new variant doesn't support the currently selected size
-    if (variant.sizes && variant.sizes.length > 0 && !variant.sizes.includes(selectedSize)) {
+    if (
+      variant.sizes &&
+      variant.sizes.length > 0 &&
+      !variant.sizes.includes(selectedSize)
+    ) {
       setSelectedSize("");
     }
     if (onVariantChange) {
@@ -38,13 +48,19 @@ export default function AddToCart({ product, onVariantChange }: { product: Produ
       ? Number(product.salePrice)
       : Number(product.price);
 
-  const effectivePrice = selectedVariant?.price ? Number(selectedVariant.price) : basePrice;
+  const effectivePrice = selectedVariant?.price
+    ? Number(selectedVariant.price)
+    : basePrice;
 
-  const isOutOfStock = product.stock <= 0 && (!selectedVariant || selectedVariant.stock <= 0);
+  const isOutOfStock =
+    product.stock <= 0 && (!selectedVariant || selectedVariant.stock <= 0);
 
-  const availableSizes = selectedVariant?.sizes?.length > 0 
-    ? selectedVariant.sizes 
-    : (product.sizes?.length > 0 ? product.sizes : []);
+  const availableSizes =
+    selectedVariant?.sizes?.length > 0
+      ? selectedVariant.sizes
+      : product.sizes?.length > 0
+        ? product.sizes
+        : [];
 
   const handleAddToCart = () => {
     // If sizes are available, one must be selected
@@ -57,10 +73,14 @@ export default function AddToCart({ product, onVariantChange }: { product: Produ
 
     addItem({
       id: product.id,
-      name: selectedVariant ? `${product.name} - ${selectedVariant.colorName}` : product.name,
+      name: selectedVariant
+        ? `${product.name} - ${selectedVariant.colorName}`
+        : product.name,
       price: effectivePrice,
       quantity: quantity,
-      imagePath: selectedVariant?.imageUrl || (product.images && product.images.length > 0 ? product.images[0] : ''),
+      imagePath:
+        selectedVariant?.imageUrl ||
+        (product.images && product.images.length > 0 ? product.images[0] : ""),
       shippingCategory,
       color: selectedVariant?.colorName,
       size: selectedSize || undefined,
@@ -84,29 +104,39 @@ export default function AddToCart({ product, onVariantChange }: { product: Produ
                 type="button"
                 onClick={() => handleVariantSelect(variant)}
                 className={`group relative flex flex-col items-center gap-2 p-2 rounded-lg border-2 transition-all ${
-                  selectedVariant?.id === variant.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/30'
+                  selectedVariant?.id === variant.id
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/30"
                 }`}
               >
                 {variant.imageUrl ? (
                   <div className="h-12 w-12 rounded-full overflow-hidden border border-border">
-                    <img src={variant.imageUrl} alt={variant.colorName} className="h-full w-full object-cover" />
+                    <img
+                      src={variant.imageUrl}
+                      alt={variant.colorName}
+                      className="h-full w-full object-cover"
+                    />
                   </div>
                 ) : (
-                  <div 
-                    className="h-12 w-12 rounded-full border border-border" 
-                    style={{ backgroundColor: variant.hexCode || '#ccc' }}
+                  <div
+                    className="h-12 w-12 rounded-full border border-border"
+                    style={{ backgroundColor: variant.hexCode || "#ccc" }}
                   />
                 )}
-                <span className="text-[10px] font-bold uppercase">{variant.colorName}</span>
+                <span className="text-[10px] font-bold uppercase">
+                  {variant.colorName}
+                </span>
                 {variant.price && (
-                  <span className="text-[10px] text-primary font-bold">${Number(variant.price).toFixed(2)}</span>
+                  <span className="text-[10px] text-primary font-bold">
+                    ${Number(variant.price).toFixed(2)}
+                  </span>
                 )}
               </button>
             ))}
           </div>
           {selectedVariant && (
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={handleClearVariant}
               className="text-xs text-foreground/40 hover:text-foreground underline"
             >
@@ -129,9 +159,9 @@ export default function AddToCart({ product, onVariantChange }: { product: Produ
                 type="button"
                 onClick={() => setSelectedSize(size)}
                 className={`min-w-[45px] h-[45px] flex items-center justify-center rounded-lg border-2 font-bold transition-all ${
-                  selectedSize === size 
-                    ? 'border-primary bg-primary text-primary-foreground' 
-                    : 'border-border hover:border-primary/30 text-foreground'
+                  selectedSize === size
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border hover:border-primary/30 text-foreground"
                 }`}
               >
                 {size}
@@ -180,15 +210,19 @@ export default function AddToCart({ product, onVariantChange }: { product: Produ
           isOutOfStock
             ? "bg-foreground/10 text-foreground/40 cursor-not-allowed"
             : isAdded
-            ? "bg-green-600 text-white"
-            : "bg-primary text-primary-foreground hover:bg-primary/90"
+              ? "bg-green-600 text-white"
+              : "bg-primary text-primary-foreground hover:bg-primary/90"
         }`}
       >
         {isOutOfStock ? (
           "Out of Stock"
         ) : (
           <>
-            {isAdded ? <Check className="h-5 w-5" /> : <ShoppingBag className="h-5 w-5" />}
+            {isAdded ? (
+              <Check className="h-5 w-5" />
+            ) : (
+              <ShoppingBag className="h-5 w-5" />
+            )}
             <span>Add to Cart</span>
           </>
         )}

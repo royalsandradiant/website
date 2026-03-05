@@ -1,12 +1,12 @@
-import { fetchProducts } from '@/app/lib/data';
-import type { ProductWithCategory } from '@/app/lib/definitions';
-import Link from 'next/link';
-import { PencilIcon, TrashIcon, PlusIcon, UploadIcon } from 'lucide-react';
-import { deleteProduct } from '@/app/lib/actions';
-import AdminProductFilters from '../ui/admin/admin-product-filters';
+import { PencilIcon, PlusIcon, TrashIcon, UploadIcon } from "lucide-react";
+import Link from "next/link";
+import { deleteProduct } from "@/app/lib/actions";
+import { fetchProducts } from "@/app/lib/data";
+import type { ProductWithCategory } from "@/app/lib/definitions";
+import AdminProductFilters from "../ui/admin/admin-product-filters";
 
-type ProductSortField = 'name' | 'price' | 'stock' | 'category' | 'created';
-type SortOrder = 'asc' | 'desc';
+type ProductSortField = "name" | "price" | "stock" | "category" | "created";
+type SortOrder = "asc" | "desc";
 
 interface AdminDashboardProps {
   searchParams: Promise<{
@@ -17,51 +17,66 @@ interface AdminDashboardProps {
 }
 
 function normalizeSortField(sort?: string): ProductSortField {
-  if (sort === 'name' || sort === 'price' || sort === 'stock' || sort === 'category') {
+  if (
+    sort === "name" ||
+    sort === "price" ||
+    sort === "stock" ||
+    sort === "category"
+  ) {
     return sort;
   }
-  return 'created';
+  return "created";
 }
 
 function normalizeSortOrder(order?: string): SortOrder {
-  return order === 'asc' ? 'asc' : 'desc';
+  return order === "asc" ? "asc" : "desc";
 }
 
-function sortProducts(products: ProductWithCategory[], sort: ProductSortField, order: SortOrder) {
+function sortProducts(
+  products: ProductWithCategory[],
+  sort: ProductSortField,
+  order: SortOrder,
+) {
   return [...products].sort((a, b) => {
     let comparison = 0;
     switch (sort) {
-      case 'name':
+      case "name":
         comparison = a.name.localeCompare(b.name);
         break;
-      case 'price':
+      case "price":
         comparison = (a.salePrice || a.price) - (b.salePrice || b.price);
         break;
-      case 'stock':
+      case "stock":
         comparison = a.stock - b.stock;
         break;
-      case 'category':
-        comparison = (a.categoryRef?.name || a.category || '').localeCompare(
-          b.categoryRef?.name || b.category || '',
+      case "category":
+        comparison = (a.categoryRef?.name || a.category || "").localeCompare(
+          b.categoryRef?.name || b.category || "",
         );
         break;
-      case 'created':
+      case "created":
       default:
-        comparison = new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+        comparison =
+          new Date(a.createdAt || 0).getTime() -
+          new Date(b.createdAt || 0).getTime();
         break;
     }
-    return order === 'desc' ? -comparison : comparison;
+    return order === "desc" ? -comparison : comparison;
   });
 }
 
-export default async function AdminDashboard({ searchParams }: AdminDashboardProps) {
+export default async function AdminDashboard({
+  searchParams,
+}: AdminDashboardProps) {
   const params = await searchParams;
-  const search = (params.search || '').trim();
+  const search = (params.search || "").trim();
   const sort = normalizeSortField(params.sort);
   const order = normalizeSortOrder(params.order);
 
   const products = await fetchProducts();
-  const validProducts = products.filter((p): p is ProductWithCategory => p !== null);
+  const validProducts = products.filter(
+    (p): p is ProductWithCategory => p !== null,
+  );
 
   const filteredProducts = search
     ? validProducts.filter((product) => {
@@ -70,10 +85,10 @@ export default async function AdminDashboard({ searchParams }: AdminDashboardPro
           product.id,
           product.name,
           product.description,
-          product.categoryRef?.name || '',
-          product.category || '',
+          product.categoryRef?.name || "",
+          product.category || "",
         ]
-          .join(' ')
+          .join(" ")
           .toLowerCase();
         return searchableText.includes(searchLower);
       })
@@ -90,14 +105,14 @@ export default async function AdminDashboard({ searchParams }: AdminDashboardPro
             href="/admin/products/bulk"
             className="flex h-10 items-center rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white transition-colors hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
           >
-            <span className="hidden md:block">Bulk Upload</span>{' '}
+            <span className="hidden md:block">Bulk Upload</span>{" "}
             <UploadIcon className="h-5 md:ml-2" />
           </Link>
           <Link
             href="/admin/products/create"
             className="flex h-10 items-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition-colors hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
           >
-            <span className="hidden md:block">Create Product</span>{' '}
+            <span className="hidden md:block">Create Product</span>{" "}
             <PlusIcon className="h-5 md:ml-2" />
           </Link>
         </div>
@@ -159,12 +174,17 @@ export default async function AdminDashboard({ searchParams }: AdminDashboardPro
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-3 py-3">
-                        <Link href={`/admin/products/${product.id}/edit`} className="block group">
+                        <Link
+                          href={`/admin/products/${product.id}/edit`}
+                          className="block group"
+                        >
                           {product.categoryRef ? (
-                            <p className="group-hover:text-blue-600 transition-colors">{product.categoryRef.name}</p>
+                            <p className="group-hover:text-blue-600 transition-colors">
+                              {product.categoryRef.name}
+                            </p>
                           ) : (
                             <p className="capitalize text-gray-400 group-hover:text-blue-600 transition-colors">
-                              {product.category || 'Uncategorized'}
+                              {product.category || "Uncategorized"}
                             </p>
                           )}
                         </Link>
@@ -172,8 +192,12 @@ export default async function AdminDashboard({ searchParams }: AdminDashboardPro
                       <td className="whitespace-nowrap px-3 py-3">
                         {product.isOnSale && product.salePrice ? (
                           <div>
-                            <span className="line-through text-gray-400">${Number(product.price).toFixed(2)}</span>
-                            <span className="ml-2 text-red-600 font-medium">${Number(product.salePrice).toFixed(2)}</span>
+                            <span className="line-through text-gray-400">
+                              ${Number(product.price).toFixed(2)}
+                            </span>
+                            <span className="ml-2 text-red-600 font-medium">
+                              ${Number(product.salePrice).toFixed(2)}
+                            </span>
                           </div>
                         ) : (
                           <span>${Number(product.price).toFixed(2)}</span>
@@ -207,7 +231,13 @@ export default async function AdminDashboard({ searchParams }: AdminDashboardPro
                         )}
                       </td>
                       <td className="whitespace-nowrap px-3 py-3">
-                        <span className={product.stock > 0 ? 'text-green-600' : 'text-red-600'}>
+                        <span
+                          className={
+                            product.stock > 0
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }
+                        >
                           {product.stock}
                         </span>
                       </td>
@@ -220,7 +250,10 @@ export default async function AdminDashboard({ searchParams }: AdminDashboardPro
                             <PencilIcon className="w-5" />
                           </Link>
                           <form action={deleteProduct.bind(null, product.id)}>
-                            <button type="submit" className="rounded-md border p-2 hover:bg-gray-100">
+                            <button
+                              type="submit"
+                              className="rounded-md border p-2 hover:bg-gray-100"
+                            >
                               <TrashIcon className="w-5" />
                             </button>
                           </form>
@@ -230,8 +263,12 @@ export default async function AdminDashboard({ searchParams }: AdminDashboardPro
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={8} className="px-6 py-10 text-center text-sm text-gray-500">
-                      No products found. Try a different search term or clear filters.
+                    <td
+                      colSpan={8}
+                      className="px-6 py-10 text-center text-sm text-gray-500"
+                    >
+                      No products found. Try a different search term or clear
+                      filters.
                     </td>
                   </tr>
                 )}
@@ -243,5 +280,3 @@ export default async function AdminDashboard({ searchParams }: AdminDashboardPro
     </div>
   );
 }
-
-
