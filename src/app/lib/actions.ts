@@ -1175,7 +1175,7 @@ export async function submitContactForm(
   try {
     // Send email to the store owner
     await resend.emails.send({
-      from: "Royals and Radiant <onboarding@resend.dev>",
+      from: "Royals and Radiant <confirmation@confirmation.royalsandradiant.com>",
       to: process.env.CONTACT_EMAIL || "",
       replyTo: email,
       subject: `Contact Form: ${subject}`,
@@ -1231,7 +1231,7 @@ export async function submitContactForm(
 
     // Send confirmation email to the customer
     await resend.emails.send({
-      from: "Royals and Radiant <onboarding@resend.dev>",
+      from: "Royals and Radiant <confirmation@confirmation.royalsandradiant.com>",
       to: email,
       subject: "Thank you for contacting Royals and Radiant",
       html: `
