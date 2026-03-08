@@ -5,6 +5,16 @@ import { useMemo, useState } from "react";
 import { markOrderShipped } from "@/app/lib/actions";
 import { cn } from "@/app/lib/utils";
 
+export type OrderItemRow = {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  price: number;
+  size: string | null;
+  color: string | null;
+};
+
 export type AdminOrderRow = {
   id: string;
   customerName: string;
@@ -18,6 +28,7 @@ export type AdminOrderRow = {
   trackingNumber: string | null;
   totalAmount: number;
   createdAt: string;
+  items: OrderItemRow[];
 };
 
 function getStatusBadgeClass(status: AdminOrderRow["status"]) {
@@ -37,11 +48,16 @@ export default function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   const selectedOrder = useMemo(
     () => localOrders.find((order) => order.id === selectedOrderId) || null,
     [localOrders, selectedOrderId],
   );
+
+  function toggleExpandOrder(orderId: string) {
+    setExpandedOrderId((current) => (current === orderId ? null : orderId));
+  }
 
   function openShipModal(order: AdminOrderRow) {
     setSelectedOrderId(order.id);
@@ -121,7 +137,10 @@ export default function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
             <table className="min-w-full text-gray-900">
               <thead className="rounded-lg text-left text-sm font-normal">
                 <tr>
-                  <th scope="col" className="px-4 py-5 font-medium sm:pl-6">
+                  <th scope="col" className="px-2 py-5 font-medium">
+                    {/* Expand */}
+                  </th>
+                  <th scope="col" className="px-3 py-5 font-medium sm:pl-3">
                     Order ID
                   </th>
                   <th scope="col" className="px-3 py-5 font-medium">
@@ -150,56 +169,163 @@ export default function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
 
               <tbody className="bg-white">
                 {localOrders.map((order) => (
-                  <tr
-                    key={order.id}
-                    className="w-full border-b py-3 text-sm last-of-type:border-none"
-                  >
-                    <td className="whitespace-nowrap py-3 pl-6 pr-3 font-mono text-xs">
-                      {order.id.slice(-8)}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-3">
-                      <div>{order.customerName}</div>
-                      <div className="text-xs text-gray-500">
-                        {order.customerEmail}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 max-w-xs truncate">
-                      {order.addressLine1}, {order.city}, {order.postalCode},{" "}
-                      {order.country}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-3">
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-1 text-xs",
-                          getStatusBadgeClass(order.status),
-                        )}
-                      >
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-3 font-mono text-xs">
-                      {order.trackingNumber || "—"}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-3 tabular-nums">
-                      ${order.totalAmount.toFixed(2)}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-3">
-                      {new Date(order.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-3">
-                      {order.status === "PENDING" ? (
+                  <>
+                    <tr
+                      key={order.id}
+                      className="w-full border-b py-3 text-sm last-of-type:border-none"
+                    >
+                      <td className="whitespace-nowrap py-3 pl-4 pr-2">
                         <button
                           type="button"
-                          onClick={() => openShipModal(order)}
-                          className="rounded-md bg-foreground px-3 py-1.5 text-xs font-semibold text-background hover:bg-foreground/90"
+                          onClick={() => toggleExpandOrder(order.id)}
+                          className="rounded p-1 hover:bg-gray-100"
+                          aria-label={
+                            expandedOrderId === order.id
+                              ? "Collapse order details"
+                              : "Expand order details"
+                          }
                         >
-                          Mark as Shipped
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className={cn(
+                              "transition-transform",
+                              expandedOrderId === order.id && "rotate-180",
+                            )}
+                            aria-hidden="true"
+                          >
+                            <polyline points="6 9 12 15 18 9" />
+                          </svg>
                         </button>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="whitespace-nowrap py-3 pl-3 pr-3 font-mono text-xs">
+                        {order.id.slice(-8)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-3">
+                        <div>{order.customerName}</div>
+                        <div className="text-xs text-gray-500">
+                          {order.customerEmail}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 max-w-xs truncate">
+                        {order.addressLine1}, {order.city}, {order.postalCode},{" "}
+                        {order.country}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-3">
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-1 text-xs",
+                            getStatusBadgeClass(order.status),
+                          )}
+                        >
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-3 font-mono text-xs">
+                        {order.trackingNumber || "—"}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-3 tabular-nums">
+                        ${order.totalAmount.toFixed(2)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-3">
+                        {new Date(order.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-3">
+                        {order.status === "PENDING" ? (
+                          <button
+                            type="button"
+                            onClick={() => openShipModal(order)}
+                            className="rounded-md bg-foreground px-3 py-1.5 text-xs font-semibold text-background hover:bg-foreground/90"
+                          >
+                            Mark as Shipped
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                    </tr>
+                    {expandedOrderId === order.id && (
+                      <tr className="bg-gray-50">
+                        <td colSpan={9} className="px-4 py-4">
+                          <div className="rounded-lg border border-gray-200 bg-white p-4">
+                            <h4 className="mb-3 text-sm font-semibold text-gray-900">
+                              Order Items ({order.items.length})
+                            </h4>
+                            <table className="min-w-full text-sm">
+                              <thead>
+                                <tr className="border-b border-gray-200">
+                                  <th className="py-2 pr-4 text-left font-medium text-gray-600">
+                                    Product
+                                  </th>
+                                  <th className="py-2 pr-4 text-center font-medium text-gray-600">
+                                    Qty
+                                  </th>
+                                  <th className="py-2 pr-4 text-left font-medium text-gray-600">
+                                    Size
+                                  </th>
+                                  <th className="py-2 pr-4 text-left font-medium text-gray-600">
+                                    Color
+                                  </th>
+                                  <th className="py-2 text-right font-medium text-gray-600">
+                                    Price
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {order.items.map((item) => (
+                                  <tr
+                                    key={item.id}
+                                    className="border-b border-gray-100 last:border-0"
+                                  >
+                                    <td className="py-2 pr-4">
+                                      <div className="font-medium text-gray-900">
+                                        {item.productName}
+                                      </div>
+                                      <div className="text-xs text-gray-500">
+                                        ID: {item.productId.slice(-8)}
+                                      </div>
+                                    </td>
+                                    <td className="py-2 pr-4 text-center">
+                                      {item.quantity}
+                                    </td>
+                                    <td className="py-2 pr-4 text-gray-600">
+                                      {item.size || "—"}
+                                    </td>
+                                    <td className="py-2 pr-4 text-gray-600">
+                                      {item.color || "—"}
+                                    </td>
+                                    <td className="py-2 text-right tabular-nums">
+                                      ${(item.price * item.quantity).toFixed(2)}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                              <tfoot>
+                                <tr className="border-t border-gray-200">
+                                  <td
+                                    colSpan={4}
+                                    className="py-2 pr-4 text-right font-semibold"
+                                  >
+                                    Total:
+                                  </td>
+                                  <td className="py-2 text-right font-semibold tabular-nums">
+                                    ${order.totalAmount.toFixed(2)}
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 ))}
               </tbody>
             </table>

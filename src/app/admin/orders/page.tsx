@@ -16,6 +16,15 @@ export default async function OrdersPage() {
     trackingNumber: order.trackingNumber,
     totalAmount: Number(order.totalAmount),
     createdAt: order.createdAt.toISOString(),
+    items: order.items.map((item) => ({
+      id: item.id,
+      productId: item.productId,
+      productName: item.product.name,
+      quantity: item.quantity,
+      price: Number(item.price),
+      size: item.size,
+      color: item.color,
+    })),
   }));
 
   return (

@@ -1600,6 +1600,15 @@ type OrderConfirmationData = {
     postalCode: string;
     country: string;
   };
+  isPickup: boolean;
+};
+
+const STORE_PICKUP_ADDRESS = {
+  line1: "210 Terrace Avenue",
+  line2: null,
+  city: "Jersey City",
+  postalCode: "NJ 07307",
+  country: "United States",
 };
 
 async function sendOrderConfirmationEmail(
@@ -1612,6 +1621,7 @@ async function sendOrderConfirmationEmail(
     items,
     totalAmount,
     shippingAddress,
+    isPickup,
   } = data;
 
   // Generate items HTML
@@ -1633,12 +1643,13 @@ async function sendOrderConfirmationEmail(
     )
     .join("");
 
-  // Format address
+  // Format address (use store address for pickup orders)
+  const addressToUse = isPickup ? STORE_PICKUP_ADDRESS : shippingAddress;
   const formattedAddress = [
-    shippingAddress.line1,
-    shippingAddress.line2,
-    `${shippingAddress.city}, ${shippingAddress.postalCode}`,
-    shippingAddress.country,
+    addressToUse.line1,
+    addressToUse.line2,
+    `${addressToUse.city}, ${addressToUse.postalCode}`,
+    addressToUse.country,
   ]
     .filter(Boolean)
     .join("<br>");
@@ -1710,11 +1721,11 @@ async function sendOrderConfirmationEmail(
             </table>
           </div>
 
-          <!-- Shipping Address -->
+          <!-- Shipping/Pickup Address -->
           <div style="background-color: #F2F0EA; border-left: 4px solid #C4A484; border-radius: 0 8px 8px 0; padding: 20px; margin-bottom: 30px;">
-            <h3 style="font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #9A3B3B; margin: 0 0 12px 0;">Shipping Address</h3>
+            <h3 style="font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #9A3B3B; margin: 0 0 12px 0;">${isPickup ? "Pickup Location" : "Shipping Address"}</h3>
             <p style="font-size: 15px; line-height: 1.8; color: #2C2A24; margin: 0;">
-              ${customerName}<br>
+              ${isPickup ? "" : `${customerName}<br>`}
               ${formattedAddress}
             </p>
           </div>
@@ -1723,9 +1734,15 @@ async function sendOrderConfirmationEmail(
           <div style="margin-bottom: 30px;">
             <h3 style="font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #C4A484; margin: 0 0 15px 0;">What's Next?</h3>
             <ul style="padding-left: 20px; margin: 0;">
+              ${isPickup ? `
+              <li style="font-size: 15px; line-height: 1.8; color: #2C2A24; margin-bottom: 8px;">Your order will be prepared for pickup</li>
+              <li style="font-size: 15px; line-height: 1.8; color: #2C2A24; margin-bottom: 8px;">We'll notify you when your order is ready for pickup</li>
+              <li style="font-size: 15px; line-height: 1.8; color: #2C2A24;">Please bring a valid ID when picking up your order</li>
+              ` : `
               <li style="font-size: 15px; line-height: 1.8; color: #2C2A24; margin-bottom: 8px;">We'll notify you when your order ships</li>
               <li style="font-size: 15px; line-height: 1.8; color: #2C2A24; margin-bottom: 8px;">Tracking information will be included in the shipping email</li>
               <li style="font-size: 15px; line-height: 1.8; color: #2C2A24;">Estimated delivery: 5-7 business days</li>
+              `}
             </ul>
           </div>
 
@@ -1750,6 +1767,179 @@ async function sendOrderConfirmationEmail(
   });
 }
 
+async function sendStoreOrderNotificationEmail(
+  data: StoreNotificationData,
+): Promise<void> {
+  const {
+    orderId,
+    customerName,
+    customerEmail,
+    items,
+    totalAmount,
+    shippingAddress,
+    isPickup,
+    couponCode,
+    discountAmount,
+    createdAt,
+  } = data;
+
+  const storeEmail = process.env.CONTACT_EMAIL;
+  if (!storeEmail) {
+    console.warn("CONTACT_EMAIL not set, skipping store notification");
+    return;
+  }
+
+  // Generate items HTML
+  const itemsHtml = items
+    .map(
+      (item) => `
+    <tr>
+      <td style="padding: 12px 0; border-bottom: 1px solid #DED8CD;">
+        <span style="font-size: 15px; color: #2C2A24;">${item.name}${item.size ? ` (Size: ${item.size})` : ""}${item.color ? ` (Color: ${item.color})` : ""}</span>
+      </td>
+      <td style="padding: 12px 0; border-bottom: 1px solid #DED8CD; text-align: center;">
+        <span style="font-size: 15px; color: #2C2A24;">${item.quantity}</span>
+      </td>
+      <td style="padding: 12px 0; border-bottom: 1px solid #DED8CD; text-align: right;">
+        <span style="font-size: 15px; color: #2C2A24;">$${(item.price * item.quantity).toFixed(2)}</span>
+      </td>
+    </tr>
+  `,
+    )
+    .join("");
+
+  // Format address
+  const formattedAddress = [
+    shippingAddress.line1,
+    shippingAddress.line2,
+    `${shippingAddress.city}, ${shippingAddress.postalCode}`,
+    shippingAddress.country,
+  ]
+    .filter(Boolean)
+    .join("<br>");
+
+  // Format date
+  const formattedDate = createdAt.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  await resend.emails.send({
+    from: "Royals and Radiant <confirmation@confirmation.royalsandradiant.com>",
+    to: storeEmail,
+    subject: `New Order Received - ${orderId}`,
+    html: `
+      <div style="background-color: #F2F0EA; padding: 40px 20px; font-family: 'Mulish', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #2C2A24;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #F9F7F2; border: 1px solid #DED8CD; padding: 40px; border-radius: 4px;">
+          <!-- Header -->
+          <div style="text-align: center; margin-bottom: 40px;">
+            <h1 style="font-family: 'Italiana', serif; font-size: 28px; font-weight: 400; margin: 0; color: #2C2A24; letter-spacing: -0.02em;">
+              Royals and Radiant
+            </h1>
+            <p style="font-size: 12px; color: #2C2A24; opacity: 0.6; margin: 4px 0 0 0; text-transform: uppercase; letter-spacing: 0.1em;">
+              Store Order Notification
+            </p>
+            <div style="height: 1px; background-color: #C4A484; width: 60px; margin: 20px auto;"></div>
+          </div>
+
+          <!-- Notification Badge -->
+          <div style="text-align: center; margin-bottom: 30px;">
+            <div style="display: inline-block; background-color: #E3F2FD; border: 1px solid #90CAF9; border-radius: 50px; padding: 8px 20px;">
+              <span style="color: #1565C0; font-size: 14px; font-weight: 600;">New Order Received</span>
+            </div>
+          </div>
+
+          <!-- Order Info -->
+          <div style="background-color: #F2F0EA; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+            <table style="width: 100%; font-size: 14px;">
+              <tr>
+                <td style="padding: 6px 0; color: #9A3B3B; font-weight: 600;">Order Number:</td>
+                <td style="padding: 6px 0; text-align: right; font-family: monospace; font-weight: 700;">${orderId}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #9A3B3B; font-weight: 600;">Order Date:</td>
+                <td style="padding: 6px 0; text-align: right;">${formattedDate}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #9A3B3B; font-weight: 600;">Delivery Method:</td>
+                <td style="padding: 6px 0; text-align: right;">${isPickup ? "Store Pickup" : "Shipping"}</td>
+              </tr>
+              ${couponCode ? `
+              <tr>
+                <td style="padding: 6px 0; color: #9A3B3B; font-weight: 600;">Coupon Used:</td>
+                <td style="padding: 6px 0; text-align: right;">${couponCode}${discountAmount ? ` (-$${discountAmount.toFixed(2)})` : ""}</td>
+              </tr>
+              ` : ""}
+            </table>
+          </div>
+
+          <!-- Customer Info -->
+          <div style="background-color: #F2F0EA; border-left: 4px solid #C4A484; border-radius: 0 8px 8px 0; padding: 20px; margin-bottom: 30px;">
+            <h3 style="font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #9A3B3B; margin: 0 0 12px 0;">Customer Details</h3>
+            <p style="font-size: 15px; line-height: 1.8; color: #2C2A24; margin: 0;">
+              <strong>Name:</strong> ${customerName}<br>
+              <strong>Email:</strong> ${customerEmail}
+            </p>
+          </div>
+
+          <!-- Shipping Address -->
+          <div style="background-color: #F2F0EA; border-left: 4px solid #C4A484; border-radius: 0 8px 8px 0; padding: 20px; margin-bottom: 30px;">
+            <h3 style="font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #9A3B3B; margin: 0 0 12px 0;">${isPickup ? "Pickup Details" : "Shipping Address"}</h3>
+            <p style="font-size: 15px; line-height: 1.8; color: #2C2A24; margin: 0;">
+              ${isPickup ? "Customer will pick up at store" : formattedAddress}
+            </p>
+          </div>
+
+          <!-- Order Items -->
+          <div style="margin-bottom: 30px;">
+            <h3 style="font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #C4A484; margin: 0 0 15px 0;">Order Items</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr>
+                  <th style="padding: 12px 0; border-bottom: 2px solid #C4A484; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #9A3B3B;">Item</th>
+                  <th style="padding: 12px 0; border-bottom: 2px solid #C4A484; text-align: center; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #9A3B3B;">Qty</th>
+                  <th style="padding: 12px 0; border-bottom: 2px solid #C4A484; text-align: right; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #9A3B3B;">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsHtml}
+              </tbody>
+              <tfoot>
+                ${discountAmount ? `
+                <tr>
+                  <td colspan="2" style="padding: 10px 0; text-align: right; font-size: 14px; color: #2C2A24;">Subtotal</td>
+                  <td style="padding: 10px 0; text-align: right; font-size: 14px; color: #2C2A24;">$${(totalAmount + discountAmount).toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="padding: 10px 0; text-align: right; font-size: 14px; color: #2C2A24;">Discount${couponCode ? ` (${couponCode})` : ""}</td>
+                  <td style="padding: 10px 0; text-align: right; font-size: 14px; color: #2C2A24;">-$${discountAmount.toFixed(2)}</td>
+                </tr>
+                ` : ""}
+                <tr>
+                  <td colspan="2" style="padding: 15px 0; text-align: right; font-size: 16px; font-weight: 600; color: #2C2A24;">Total</td>
+                  <td style="padding: 15px 0; text-align: right; font-size: 18px; font-weight: 700; color: #9A3B3B;">$${totalAmount.toFixed(2)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <!-- Footer -->
+          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #DED8CD; text-align: center;">
+            <p style="font-size: 14px; color: #2C2A24; opacity: 0.7; margin: 0;">
+              This is an automated notification from your store.<br>
+              Please process this order promptly.
+            </p>
+          </div>
+        </div>
+      </div>
+    `,
+  });
+}
+
 type OrderShippedEmailData = {
   orderId: string;
   customerName: string;
@@ -1757,6 +1947,33 @@ type OrderShippedEmailData = {
   trackingNumber: string;
   trackingUrl: string;
   carrierLabel: string;
+};
+
+type StoreNotificationItem = {
+  name: string;
+  quantity: number;
+  price: number;
+  size?: string | null;
+  color?: string | null;
+};
+
+type StoreNotificationData = {
+  orderId: string;
+  customerName: string;
+  customerEmail: string;
+  items: StoreNotificationItem[];
+  totalAmount: number;
+  shippingAddress: {
+    line1: string;
+    line2?: string | null;
+    city: string;
+    postalCode: string;
+    country: string;
+  };
+  isPickup: boolean;
+  couponCode?: string | null;
+  discountAmount?: number | null;
+  createdAt: Date;
 };
 
 async function sendOrderShippedEmail(
@@ -2159,6 +2376,7 @@ export async function handleStripeWebhook(payload: string, signature: string) {
               postalCode: orderAddress.postalCode,
               country: orderAddress.country,
             },
+            isPickup,
           });
           console.log(
             "Order confirmation email sent successfully to:",
@@ -2166,6 +2384,47 @@ export async function handleStripeWebhook(payload: string, signature: string) {
           );
         } catch (emailError) {
           console.error("Failed to send order confirmation email:", emailError);
+        }
+
+        // Send store notification email
+        try {
+          const storeEmailItems: StoreNotificationItem[] = mappedItems.map(
+            (item) => ({
+              name:
+                item.name ||
+                emailItems.find((ei) => ei.name === item.name)?.name ||
+                "Item",
+              quantity: item.quantity,
+              price: item.price,
+              size: item.size,
+              color: item.color,
+            }),
+          );
+
+          await sendStoreOrderNotificationEmail({
+            orderId: order.id,
+            customerName,
+            customerEmail,
+            items: storeEmailItems,
+            totalAmount,
+            shippingAddress: {
+              line1: orderAddress.line1,
+              line2: orderAddress.line2,
+              city: orderAddress.city,
+              postalCode: orderAddress.postalCode,
+              country: orderAddress.country,
+            },
+            isPickup,
+            couponCode,
+            discountAmount: discountAmount ?? null,
+            createdAt: new Date(),
+          });
+          console.log("Store notification email sent successfully");
+        } catch (storeEmailError) {
+          console.error(
+            "Failed to send store notification email:",
+            storeEmailError,
+          );
         }
       } else {
         console.log(
