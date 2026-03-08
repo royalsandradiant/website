@@ -2,7 +2,7 @@
 
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { useMemo, useState } from "react";
-import { markOrderShipped } from "@/app/lib/actions";
+import { markOrderShipped, updateTrackingNumber } from "@/app/lib/actions";
 import { cn } from "@/app/lib/utils";
 
 export type OrderItemRow = {
@@ -26,6 +26,7 @@ export type AdminOrderRow = {
   country: string;
   status: "PENDING" | "SHIPPED" | "DELIVERED";
   trackingNumber: string | null;
+  carrier: string | null;
   totalAmount: number;
   createdAt: string;
   items: OrderItemRow[];
@@ -44,6 +45,7 @@ function getStatusBadgeClass(status: AdminOrderRow["status"]) {
 export default function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
   const [localOrders, setLocalOrders] = useState(orders);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [modalMode, setModalMode] = useState<"ship" | "edit">("ship");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
@@ -61,6 +63,14 @@ export default function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
 
   function openShipModal(order: AdminOrderRow) {
     setSelectedOrderId(order.id);
+    setModalMode("ship");
+    setTrackingNumber(order.trackingNumber || "");
+    setError("");
+  }
+
+  function openEditTrackingModal(order: AdminOrderRow) {
+    setSelectedOrderId(order.id);
+    setModalMode("edit");
     setTrackingNumber(order.trackingNumber || "");
     setError("");
   }
@@ -115,6 +125,49 @@ export default function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
     closeShipModal();
   }
 
+  async function handleUpdateTracking(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedOrder) {
+      return;
+    }
+
+    const trimmedTracking = trackingNumber.trim();
+    if (!trimmedTracking) {
+      setError("Tracking number is required.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError("");
+    setWarning("");
+
+    const result = await updateTrackingNumber(selectedOrder.id, trimmedTracking);
+
+    if (!result.success) {
+      setError(result.error || "Failed to update tracking number.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    setLocalOrders((prev) =>
+      prev.map((order) =>
+        order.id === selectedOrder.id
+          ? {
+              ...order,
+              trackingNumber: trimmedTracking,
+            }
+          : order,
+      ),
+    );
+
+    if (result.warning) {
+      setWarning(result.warning);
+    }
+
+    setIsSubmitting(false);
+    closeShipModal();
+  }
+
   if (localOrders.length === 0) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
@@ -154,6 +207,9 @@ export default function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
                   </th>
                   <th scope="col" className="px-3 py-5 font-medium">
                     Tracking
+                  </th>
+                  <th scope="col" className="px-3 py-5 font-medium">
+                    Carrier
                   </th>
                   <th scope="col" className="px-3 py-5 font-medium">
                     Total
@@ -231,6 +287,15 @@ export default function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
                       <td className="whitespace-nowrap px-3 py-3 font-mono text-xs">
                         {order.trackingNumber || "—"}
                       </td>
+                      <td className="whitespace-nowrap px-3 py-3">
+                        {order.carrier ? (
+                          <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
+                            {order.carrier}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
                       <td className="whitespace-nowrap px-3 py-3 tabular-nums">
                         ${order.totalAmount.toFixed(2)}
                       </td>
@@ -245,6 +310,14 @@ export default function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
                             className="rounded-md bg-foreground px-3 py-1.5 text-xs font-semibold text-background hover:bg-foreground/90"
                           >
                             Mark as Shipped
+                          </button>
+                        ) : order.status === "SHIPPED" ? (
+                          <button
+                            type="button"
+                            onClick={() => openEditTrackingModal(order)}
+                            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+                          >
+                            Edit Tracking
                           </button>
                         ) : (
                           <span className="text-xs text-gray-400">—</span>
@@ -345,14 +418,19 @@ export default function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
           <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
           <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-xl">
             <AlertDialog.Title className="text-lg font-semibold">
-              Mark as Shipped
+              {modalMode === "ship" ? "Mark as Shipped" : "Edit Tracking Number"}
             </AlertDialog.Title>
             <AlertDialog.Description className="mt-2 text-sm text-gray-600">
-              Enter a tracking number for order{" "}
+              {modalMode === "ship"
+                ? "Enter a tracking number for order"
+                : "Update the tracking number for order"}{" "}
               {selectedOrder ? selectedOrder.id.slice(-8) : ""}.
             </AlertDialog.Description>
 
-            <form className="mt-5 space-y-4" onSubmit={handleMarkAsShipped}>
+            <form
+              className="mt-5 space-y-4"
+              onSubmit={modalMode === "ship" ? handleMarkAsShipped : handleUpdateTracking}
+            >
               <div>
                 <label
                   htmlFor="trackingNumber"
@@ -388,9 +466,18 @@ export default function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="rounded-md bg-foreground px-4 py-2 text-sm font-semibold text-background hover:bg-foreground/90 disabled:opacity-50"
+                  className={cn(
+                    "rounded-md px-4 py-2 text-sm font-semibold text-white disabled:opacity-50",
+                    modalMode === "ship"
+                      ? "bg-foreground hover:bg-foreground/90"
+                      : "bg-blue-600 hover:bg-blue-700",
+                  )}
                 >
-                  {isSubmitting ? "Saving..." : "Mark as Shipped"}
+                  {isSubmitting
+                    ? "Saving..."
+                    : modalMode === "ship"
+                      ? "Mark as Shipped"
+                      : "Update Tracking"}
                 </button>
               </div>
             </form>

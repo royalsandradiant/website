@@ -2122,6 +2122,76 @@ export async function markOrderShipped(
   }
 }
 
+export async function updateTrackingNumber(orderId: string, trackingNumber: string) {
+  const normalizedOrderId = orderId.trim();
+  const normalizedTrackingNumber = trackingNumber.trim();
+
+  if (!normalizedOrderId) {
+    return { success: false, error: "Order ID is required." };
+  }
+
+  if (!normalizedTrackingNumber) {
+    return { success: false, error: "Tracking number is required." };
+  }
+
+  try {
+    const existingOrder = await prisma.order.findUnique({
+      where: { id: normalizedOrderId },
+      select: {
+        id: true,
+        status: true,
+        customerName: true,
+        customerEmail: true,
+      },
+    });
+
+    if (!existingOrder) {
+      return { success: false, error: "Order not found." };
+    }
+
+    if (existingOrder.status !== "SHIPPED") {
+      return { success: false, error: "Order must be shipped before updating tracking." };
+    }
+
+    const trackingDetails = buildTrackingLink(normalizedTrackingNumber);
+
+    await prisma.order.update({
+      where: { id: normalizedOrderId },
+      data: {
+        trackingNumber: trackingDetails.trackingNumber,
+      },
+    });
+
+    // Send email notification about updated tracking
+    let warning: string | undefined;
+    try {
+      await sendOrderShippedEmail({
+        orderId: existingOrder.id,
+        customerName: existingOrder.customerName,
+        customerEmail: existingOrder.customerEmail,
+        trackingNumber: trackingDetails.trackingNumber,
+        trackingUrl: trackingDetails.trackingUrl,
+        carrierLabel: trackingDetails.carrierLabel,
+      });
+    } catch (emailError) {
+      console.error("Failed to send tracking update email:", emailError);
+      warning = "Tracking updated, but notification email could not be sent.";
+    }
+
+    revalidatePath("/admin/orders");
+    revalidatePath("/admin");
+
+    if (warning) {
+      return { success: true, warning };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to update tracking number:", error);
+    return { success: false, error: "Failed to update tracking number." };
+  }
+}
+
 export async function handleStripeWebhook(payload: string, signature: string) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
