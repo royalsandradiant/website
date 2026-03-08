@@ -3,6 +3,7 @@
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { useMemo, useState } from "react";
 import { markOrderShipped, updateTrackingNumber } from "@/app/lib/actions";
+import { buildTrackingLink } from "@/app/lib/shipping-tracking";
 import { cn } from "@/app/lib/utils";
 
 export type OrderItemRow = {
@@ -105,6 +106,9 @@ export default function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
       return;
     }
 
+    // Recompute carrier from new tracking number
+    const { carrierLabel: newCarrier } = buildTrackingLink(trimmedTracking);
+
     setLocalOrders((prev) =>
       prev.map((order) =>
         order.id === selectedOrder.id
@@ -112,6 +116,7 @@ export default function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
               ...order,
               status: "SHIPPED",
               trackingNumber: trimmedTracking,
+              carrier: newCarrier,
             }
           : order,
       ),
@@ -149,12 +154,16 @@ export default function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
       return;
     }
 
+    // Recompute carrier from new tracking number
+    const { carrierLabel: newCarrier } = buildTrackingLink(trimmedTracking);
+
     setLocalOrders((prev) =>
       prev.map((order) =>
         order.id === selectedOrder.id
           ? {
               ...order,
               trackingNumber: trimmedTracking,
+              carrier: newCarrier,
             }
           : order,
       ),
