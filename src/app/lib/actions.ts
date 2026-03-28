@@ -1,12 +1,15 @@
 "use server";
 
 import type { Prisma } from "@prisma/client";
+import { randomUUID } from "crypto";
 import { del, put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Resend } from "resend";
 import Stripe from "stripe";
 import { z } from "zod";
+import { auth } from "@/lib/auth";
 import type {
   CategoryState,
   HeroViewport,
@@ -37,6 +40,58 @@ function normalizeHeroViewportInput(
 ): HeroViewport {
   return viewport === "mobile" ? "mobile" : "desktop";
 }
+
+async function requireAdminSession() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  return session?.user ? session : null;
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+type ProductForPricing = {
+  id: string;
+  price: Prisma.Decimal;
+  isOnSale: boolean;
+  salePrice: Prisma.Decimal | null;
+  variants: { colorName: string; price: Prisma.Decimal | null }[];
+};
+
+function unitPriceFromProductRow(
+  p: ProductForPricing,
+  color: string | null | undefined,
+): number {
+  let n = Number(p.price);
+  if (p.isOnSale && p.salePrice != null) {
+    n = Number(p.salePrice);
+  }
+  if (color) {
+    const v = p.variants.find((x) => x.colorName === color);
+    if (v?.price != null) {
+      n = Number(v.price);
+    }
+  }
+  return n;
+}
+
+const StripeWebhookMetadataItemSchema = z.object({
+  id: z.string(),
+  quantity: z.number().int().positive(),
+  price: z.number(),
+  name: z.string().optional(),
+  comboId: z.string().nullable().optional(),
+  originalProductId: z.string().nullable().optional(),
+  color: z.string().nullable().optional(),
+  size: z.string().nullable().optional(),
+});
 
 // ===================
 // Category Schemas
@@ -105,6 +160,9 @@ export async function createCategory(
   _prevState: CategoryState,
   formData: FormData,
 ): Promise<CategoryState> {
+  if (!(await requireAdminSession())) {
+    redirect("/login");
+  }
   const parentId = formData.get("parentId") as string | null;
   const isVisibleValue =
     formData.get("isVisible") === "on" || formData.get("isVisible") === "true";
@@ -211,6 +269,9 @@ export async function updateCategory(
   _prevState: CategoryState,
   formData: FormData,
 ): Promise<CategoryState> {
+  if (!(await requireAdminSession())) {
+    redirect("/login");
+  }
   const parentId = formData.get("parentId") as string | null;
   const isVisibleValue =
     formData.get("isVisible") === "on" || formData.get("isVisible") === "true";
@@ -353,6 +414,9 @@ export async function updateCategory(
 export async function deleteCategory(
   id: string,
 ): Promise<{ success: boolean; message: string }> {
+  if (!(await requireAdminSession())) {
+    return { success: false, message: "Unauthorized." };
+  }
   try {
     // Check for children
     const childCount = await prisma.category.count({
@@ -406,6 +470,9 @@ export async function deleteCategory(
 export async function reorderCategories(
   orderedIds: { id: string; sortOrder: number }[],
 ): Promise<{ success: boolean; message: string }> {
+  if (!(await requireAdminSession())) {
+    return { success: false, message: "Unauthorized." };
+  }
   try {
     // Update all categories in a transaction
     await prisma.$transaction(
@@ -464,6 +531,9 @@ const CreateProduct = ProductSchema.omit({ id: true });
 const UpdateProduct = ProductSchema.omit({ id: true });
 
 export async function createProduct(_prevState: State, formData: FormData) {
+  if (!(await requireAdminSession())) {
+    redirect("/login");
+  }
   const isOnSaleValue = formData.get("isOnSale") === "on";
   const isFeaturedValue = formData.get("isFeatured") === "on";
   const isComboValue = formData.get("isCombo") === "on";
@@ -615,6 +685,9 @@ export async function updateProduct(
   _prevState: State,
   formData: FormData,
 ) {
+  if (!(await requireAdminSession())) {
+    redirect("/login");
+  }
   const isOnSaleValue = formData.get("isOnSale") === "on";
   const isFeaturedValue = formData.get("isFeatured") === "on";
   const isComboValue = formData.get("isCombo") === "on";
@@ -777,6 +850,9 @@ export async function updateProduct(
 }
 
 export async function deleteProduct(id: string) {
+  if (!(await requireAdminSession())) {
+    redirect("/login");
+  }
   try {
     // Get product with all images before deletion (variants will cascade delete)
     const product = await prisma.product.findUnique({
@@ -837,6 +913,13 @@ export async function bulkCreateProducts(formData: FormData): Promise<{
   results: BulkProductResult[];
   message: string;
 }> {
+  if (!(await requireAdminSession())) {
+    return {
+      success: false,
+      results: [],
+      message: "Unauthorized.",
+    };
+  }
   const results: BulkProductResult[] = [];
 
   // Parse the products JSON from form data
@@ -1080,6 +1163,9 @@ const OrderSchema = z.object({
 });
 
 export async function createOrder(data: z.infer<typeof OrderSchema>) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Unauthorized." };
+  }
   const validation = OrderSchema.safeParse(data);
 
   if (!validation.success) {
@@ -1171,6 +1257,10 @@ export async function submitContactForm(
   }
 
   const { name, email, subject, message } = validatedFields.data;
+  const safeName = escapeHtml(name);
+  const safeEmail = escapeHtml(email);
+  const safeSubject = escapeHtml(subject);
+  const safeMessageHtml = escapeHtml(message).replace(/\n/g, "<br>");
 
   try {
     // Send email to the store owner
@@ -1201,21 +1291,21 @@ export async function submitContactForm(
             <div style="margin-bottom: 30px;">
               <div style="margin-bottom: 15px;">
                 <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #C4A484; display: block; margin-bottom: 4px;">Name</span>
-                <span style="font-size: 16px;">${name}</span>
+                <span style="font-size: 16px;">${safeName}</span>
               </div>
               <div style="margin-bottom: 15px;">
                 <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #C4A484; display: block; margin-bottom: 4px;">Email</span>
-                <span style="font-size: 16px;">${email}</span>
+                <span style="font-size: 16px;">${safeEmail}</span>
               </div>
               <div style="margin-bottom: 15px;">
                 <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #C4A484; display: block; margin-bottom: 4px;">Subject</span>
-                <span style="font-size: 16px;">${subject}</span>
+                <span style="font-size: 16px;">${safeSubject}</span>
               </div>
             </div>
 
             <div style="padding: 25px; background-color: #F2F0EA; border-left: 4px solid #9A3B3B; border-radius: 0 4px 4px 0;">
               <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #C4A484; display: block; margin-bottom: 10px;">Message</span>
-              <div style="font-size: 15px; line-height: 1.6; color: #2C2A24;">${message.replace(/\n/g, "<br>")}</div>
+              <div style="font-size: 15px; line-height: 1.6; color: #2C2A24;">${safeMessageHtml}</div>
             </div>
 
             <!-- Footer -->
@@ -1254,7 +1344,7 @@ export async function submitContactForm(
             </h2>
             
             <p style="font-size: 16px; line-height: 1.6; margin-bottom: 25px;">
-              Dear ${name},
+              Dear ${safeName},
             </p>
             
             <p style="font-size: 16px; line-height: 1.6; margin-bottom: 30px;">
@@ -1264,8 +1354,8 @@ export async function submitContactForm(
             <div style="padding: 25px; background-color: #F2F0EA; border-left: 4px solid #C4A484; border-radius: 0 4px 4px 0;">
               <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #9A3B3B; display: block; margin-bottom: 10px;">Your Message Copy</span>
               <div style="font-size: 14px; line-height: 1.6; color: #2C2A24; opacity: 0.8;">
-                <strong>Subject:</strong> ${subject}<br><br>
-                ${message.replace(/\n/g, "<br>")}
+                <strong>Subject:</strong> ${safeSubject}<br><br>
+                ${safeMessageHtml}
               </div>
             </div>
 
@@ -1300,6 +1390,16 @@ export async function submitContactForm(
 export async function getOrderBySessionId(sessionId: string) {
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (session.status !== "complete") {
+      return null;
+    }
+    const paid =
+      session.payment_status === "paid" ||
+      session.payment_status === "no_payment_required";
+    if (!paid) {
+      return null;
+    }
 
     const paymentIntentId =
       typeof session.payment_intent === "string"
@@ -1416,7 +1516,7 @@ export async function createStripeCheckoutSession(
   items: CheckoutItem[],
   shippingInfo: ShippingInfo,
   shippingCost: number = 0,
-  coupon?: { code: string; discountAmount: number },
+  coupon?: { code: string; discountAmount?: number },
   isPickup: boolean = false,
 ): Promise<{ url: string | null; error?: string }> {
   try {
@@ -1424,6 +1524,10 @@ export async function createStripeCheckoutSession(
     const appUrl = getBaseUrl();
     if (!appUrl) {
       return { url: null, error: "Base URL is not set" };
+    }
+
+    if (items.length === 0) {
+      return { url: null, error: "Your cart is empty." };
     }
 
     // Find existing customer or create new one to pre-fill Stripe checkout
@@ -1475,17 +1579,164 @@ export async function createStripeCheckoutSession(
       customerId = customer.id;
     }
 
-    const lineItems: any[] = items.map((item) => ({
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: item.name,
-          images: item.images && item.images.length > 0 ? [item.images[0]] : [],
-        },
-        unit_amount: Math.round(item.price * 100), // Stripe expects cents
+    type ResolvedLine = {
+      item: CheckoutItem;
+      unitPrice: number;
+      displayName: string;
+    };
+    const resolvedLines: ResolvedLine[] = [];
+
+    const comboGroups = new Map<string, CheckoutItem[]>();
+    const regularItems: CheckoutItem[] = [];
+    for (const item of items) {
+      if (item.comboId) {
+        const g = comboGroups.get(item.comboId) ?? [];
+        g.push(item);
+        comboGroups.set(item.comboId, g);
+      } else {
+        regularItems.push(item);
+      }
+    }
+
+    const productIds = new Set<string>();
+    for (const item of regularItems) {
+      productIds.add(item.id);
+    }
+    for (const [, group] of comboGroups) {
+      for (const item of group) {
+        if (!item.originalProductId) {
+          return { url: null, error: "Invalid combo cart item." };
+        }
+        productIds.add(item.originalProductId);
+      }
+    }
+
+    const products = await prisma.product.findMany({
+      where: { id: { in: [...productIds] } },
+      select: {
+        id: true,
+        price: true,
+        isOnSale: true,
+        salePrice: true,
+        variants: { select: { colorName: true, price: true } },
       },
-      quantity: item.quantity,
-    }));
+    });
+    if (products.length !== productIds.size) {
+      return {
+        url: null,
+        error: "A product in your cart is no longer available.",
+      };
+    }
+    const productById = new Map<string, ProductForPricing>(
+      products.map((p) => [p.id, p]),
+    );
+
+    const settingsRow = await prisma.settings.findUnique({
+      where: { id: "global" },
+    });
+    const comboDiscount2 = settingsRow?.comboDiscount2 ?? 10;
+    const comboDiscount3 = settingsRow?.comboDiscount3 ?? 15;
+
+    const unitPriceFromDb = (productId: string, color?: string | null) => {
+      const p = productById.get(productId);
+      if (!p) return null;
+      return unitPriceFromProductRow(p, color);
+    };
+
+    for (const item of regularItems) {
+      const u = unitPriceFromDb(item.id, item.color);
+      if (u === null) {
+        return {
+          url: null,
+          error: "A product in your cart is no longer available.",
+        };
+      }
+      resolvedLines.push({ item, unitPrice: u, displayName: item.name });
+    }
+
+    for (const [, group] of comboGroups) {
+      if (group.length < 2 || group.length > 3) {
+        return { url: null, error: "Invalid combo selection." };
+      }
+      const pct = group.length === 2 ? comboDiscount2 : comboDiscount3;
+      const weights: number[] = [];
+      for (const item of group) {
+        const origId = item.originalProductId;
+        if (!origId) {
+          return { url: null, error: "Invalid combo cart item." };
+        }
+        const u = unitPriceFromDb(origId, item.color);
+        if (u === null) {
+          return {
+            url: null,
+            error: "A combo product is no longer available.",
+          };
+        }
+        weights.push(u * item.quantity);
+      }
+      const originalSubtotal = weights.reduce((a, b) => a + b, 0);
+      const comboSubtotal = originalSubtotal * (1 - pct / 100);
+      const wsum = weights.reduce((a, b) => a + b, 0);
+      for (let i = 0; i < group.length; i++) {
+        const item = group[i];
+        const w = weights[i];
+        if (item === undefined || w === undefined) {
+          return { url: null, error: "Invalid combo selection." };
+        }
+        const share = wsum > 0 ? w / wsum : 1 / group.length;
+        const lineTotal = comboSubtotal * share;
+        const unitPrice =
+          item.quantity > 0 ? lineTotal / item.quantity : lineTotal;
+        resolvedLines.push({
+          item,
+          unitPrice,
+          displayName: item.name,
+        });
+      }
+    }
+
+    const cartSubtotal = resolvedLines.reduce(
+      (s, r) => s + r.unitPrice * r.item.quantity,
+      0,
+    );
+
+    let serverDiscountAmount = 0;
+    let couponCodeForMetadata = "";
+    if (coupon?.code?.trim()) {
+      const code = coupon.code.trim();
+      const v = await validateCoupon(code, cartSubtotal);
+      if (!v.success || !v.coupon) {
+        return { url: null, error: v.error || "Invalid coupon." };
+      }
+      const applied = v.coupon;
+      couponCodeForMetadata = applied.code;
+      if (applied.discountType === "PERCENTAGE") {
+        serverDiscountAmount =
+          (cartSubtotal * applied.discountValue) / 100;
+      } else {
+        serverDiscountAmount = applied.discountValue;
+      }
+      serverDiscountAmount = Math.min(
+        Math.max(0, serverDiscountAmount),
+        cartSubtotal,
+      );
+    }
+
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
+      resolvedLines.map((r) => {
+        const firstImage = r.item.images?.[0];
+        return {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: r.displayName,
+              images: firstImage ? [firstImage] : [],
+            },
+            unit_amount: Math.round(r.unitPrice * 100),
+          },
+          quantity: r.item.quantity,
+        };
+      });
 
     // Add Shipping Line Item (Feature 5)
     if (shippingCost > 0) {
@@ -1501,33 +1752,30 @@ export async function createStripeCheckoutSession(
       });
     }
 
-    // Add Coupon as a negative line item if Stripe Coupons aren't used directly
-    // Alternatively, we could create a Stripe Coupon on the fly, but negative line item is simpler for one-off discounts
-    if (coupon && coupon.discountAmount > 0) {
+    if (serverDiscountAmount > 0) {
       lineItems.push({
         price_data: {
           currency: "usd",
           product_data: {
-            name: `Discount: ${coupon.code}`,
+            name: `Discount: ${couponCodeForMetadata}`,
           },
-          unit_amount: -Math.round(coupon.discountAmount * 100),
+          unit_amount: -Math.round(serverDiscountAmount * 100),
         },
         quantity: 1,
       });
     }
 
-    const orderId = `ORD-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+    const orderId = `ORD-${randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase()}`;
 
-    // Include combo information in metadata
-    const itemsMetadata = items.map((i) => ({
-      id: i.id,
-      quantity: i.quantity,
-      price: i.price,
-      name: i.name,
-      comboId: i.comboId || null,
-      originalProductId: i.originalProductId || null,
-      color: i.color || null,
-      size: i.size || null,
+    const itemsMetadata = resolvedLines.map((r) => ({
+      id: r.item.originalProductId || r.item.id,
+      quantity: r.item.quantity,
+      price: r.unitPrice,
+      name: r.displayName,
+      comboId: r.item.comboId ?? null,
+      originalProductId: r.item.originalProductId ?? null,
+      color: r.item.color ?? null,
+      size: r.item.size ?? null,
     }));
 
     const session = await stripe.checkout.sessions.create({
@@ -1547,8 +1795,8 @@ export async function createStripeCheckoutSession(
           postalCode: shippingInfo.postalCode,
           country: shippingInfo.country,
           items: JSON.stringify(itemsMetadata),
-          couponCode: coupon?.code || "",
-          discountAmount: coupon?.discountAmount.toString() || "0",
+          couponCode: couponCodeForMetadata,
+          discountAmount: serverDiscountAmount.toString(),
           isPickup: isPickup ? "true" : "false",
         },
       },
@@ -1561,8 +1809,8 @@ export async function createStripeCheckoutSession(
         postalCode: shippingInfo.postalCode,
         country: shippingInfo.country,
         items: JSON.stringify(itemsMetadata),
-        couponCode: coupon?.code || "",
-        discountAmount: coupon?.discountAmount.toString() || "0",
+        couponCode: couponCodeForMetadata,
+        discountAmount: serverDiscountAmount.toString(),
         isPickup: isPickup ? "true" : "false",
       },
       ...(!isPickup && {
@@ -2044,6 +2292,9 @@ export async function markOrderShipped(
   orderId: string,
   trackingNumber: string,
 ) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Unauthorized." };
+  }
   const normalizedOrderId = orderId.trim();
   const normalizedTrackingNumber = trackingNumber.trim();
 
@@ -2123,6 +2374,9 @@ export async function markOrderShipped(
 }
 
 export async function updateTrackingNumber(orderId: string, trackingNumber: string) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Unauthorized." };
+  }
   const normalizedOrderId = orderId.trim();
   const normalizedTrackingNumber = trackingNumber.trim();
 
@@ -2214,26 +2468,22 @@ export async function handleStripeWebhook(payload: string, signature: string) {
         throw new Error("Missing metadata in session");
       }
 
-      type StripeCheckoutMetadataItem = {
-        id: string;
-        quantity: number;
-        price: number;
-        name?: string;
-        comboId?: string | null;
-        originalProductId?: string | null;
-        color?: string | null;
-        size?: string | null;
-      };
-
-      let metadataItems: StripeCheckoutMetadataItem[] = [];
+      let parsedItemsJson: unknown;
       try {
-        metadataItems = JSON.parse(
-          metadata.items,
-        ) as StripeCheckoutMetadataItem[];
+        parsedItemsJson = JSON.parse(metadata.items);
       } catch (parseError) {
         console.error("Failed to parse Stripe items metadata:", parseError);
         throw new Error("Invalid metadata.items payload");
       }
+
+      const itemsParse = z
+        .array(StripeWebhookMetadataItemSchema)
+        .safeParse(parsedItemsJson);
+      if (!itemsParse.success) {
+        console.error("Stripe metadata.items validation:", itemsParse.error);
+        throw new Error("Invalid metadata.items shape");
+      }
+      const metadataItems = itemsParse.data;
 
       const stripeLineItems = await stripe.checkout.sessions.listLineItems(
         session.id,
@@ -2519,6 +2769,9 @@ export async function updateComboSettings(
   comboDiscount2: number,
   comboDiscount3: number,
 ) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Unauthorized." };
+  }
   try {
     if (!prisma.settings) {
       console.warn("prisma.settings is undefined.");
@@ -2548,6 +2801,9 @@ export async function updateStoreSettings(data: {
   allowStorePickup?: boolean;
   pickupAddress?: string | null;
 }) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Unauthorized." };
+  }
   try {
     await prisma.settings.upsert({
       where: { id: "global" },
@@ -2578,6 +2834,9 @@ export async function createShippingRule(
   price: number,
   maxAmount?: number | null,
 ) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Unauthorized." };
+  }
   try {
     if (Number.isNaN(minAmount) || Number.isNaN(price)) {
       return { success: false, error: "Please enter valid numeric values." };
@@ -2632,6 +2891,9 @@ export async function createShippingRule(
 }
 
 export async function deleteShippingRule(id: string) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Unauthorized." };
+  }
   try {
     await prisma.shippingRule.delete({ where: { id } });
     revalidatePath("/admin/settings");
@@ -2644,6 +2906,9 @@ export async function deleteShippingRule(id: string) {
 }
 
 export async function createHeroImage(formData: FormData) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Unauthorized." };
+  }
   const imageFiles = formData.getAll("image") as File[];
   const altText = formData.get("altText") as string;
   const viewport = normalizeHeroViewportInput(
@@ -2688,6 +2953,9 @@ export async function createHeroImage(formData: FormData) {
 }
 
 export async function deleteHeroImage(id: string) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Unauthorized." };
+  }
   try {
     // Get hero image URL before deletion
     const heroImage = await prisma.heroImage.findUnique({
@@ -2713,6 +2981,9 @@ export async function updateHeroImageViewport(
   id: string,
   viewport: HeroViewport,
 ) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Unauthorized." };
+  }
   try {
     const normalizedViewport = normalizeHeroViewportInput(viewport);
     const image = await prisma.heroImage.update({
@@ -2737,6 +3008,9 @@ export async function updateHeroImageViewport(
 export async function reorderHeroImages(
   orderedIds: { id: string; sortOrder: number }[],
 ) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Unauthorized." };
+  }
   try {
     await prisma.$transaction(
       orderedIds.map(({ id, sortOrder }) =>
@@ -2756,6 +3030,9 @@ export async function reorderHeroImages(
 }
 
 export async function uploadVariantImage(formData: FormData) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Unauthorized." };
+  }
   const file = formData.get("image") as File;
   if (!file || file.size === 0) return { success: false, error: "No file" };
 
@@ -2773,6 +3050,12 @@ export async function uploadVariantImage(formData: FormData) {
 
 // Coupon Actions
 export async function createCoupon(formData: FormData) {
+  if (!(await requireAdminSession())) {
+    return {
+      success: false,
+      error: "Unauthorized.",
+    };
+  }
   const code = (formData.get("code") as string).toUpperCase();
   const discountType = formData.get("discountType") as "PERCENTAGE" | "FIXED";
   const discountValue = parseFloat(formData.get("discountValue") as string);
@@ -2811,6 +3094,9 @@ export async function createCoupon(formData: FormData) {
 }
 
 export async function deleteCoupon(id: string) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Unauthorized." };
+  }
   try {
     await prisma.coupon.delete({ where: { id } });
     revalidatePath("/admin/settings");
