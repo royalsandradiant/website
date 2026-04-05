@@ -29,6 +29,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
   apiVersion: "2025-12-15.clover",
 });
 
+/** Stripe Tax PTCs — set on line items so calculation does not rely on Dashboard preset alone. */
+const STRIPE_TAX_CODE_TANGIBLE_GOODS = "txcd_99999999";
+const STRIPE_TAX_CODE_SHIPPING_PHYSICAL = "txcd_92010001";
+
 function normalizeShippingCategoryInput(
   category: string | null | undefined,
 ): ShippingCategory {
@@ -1768,6 +1772,7 @@ export async function createStripeCheckoutSession(
             product_data: {
               name: r.displayName,
               images: firstImage ? [firstImage] : [],
+              tax_code: STRIPE_TAX_CODE_TANGIBLE_GOODS,
             },
             unit_amount: Math.round(r.unitPrice * 100),
           },
@@ -1783,6 +1788,7 @@ export async function createStripeCheckoutSession(
           tax_behavior: "exclusive",
           product_data: {
             name: "Shipping & Handling",
+            tax_code: STRIPE_TAX_CODE_SHIPPING_PHYSICAL,
           },
           unit_amount: Math.round(shippingCost * 100),
         },
