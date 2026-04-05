@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import Stripe from "stripe";
 import { handleStripeWebhook } from "@/app/lib/actions";
 
 export async function POST(request: NextRequest) {
@@ -17,9 +18,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("Webhook error:", error);
+    if (error instanceof Stripe.errors.StripeSignatureVerificationError) {
+      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+    }
+    // 5xx so Stripe retries transient failures; 4xx would suppress retries.
     return NextResponse.json(
       { error: "Webhook handler failed" },
-      { status: 400 },
+      { status: 500 },
     );
   }
 }

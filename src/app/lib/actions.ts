@@ -1389,7 +1389,9 @@ export async function submitContactForm(
 // Fetch order by Stripe session ID
 export async function getOrderBySessionId(sessionId: string) {
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ["customer"],
+    });
 
     if (session.status !== "complete") {
       return null;
@@ -1410,7 +1412,7 @@ export async function getOrderBySessionId(sessionId: string) {
       return null;
     }
 
-    const order = await prisma.order.findFirst({
+    let order = await prisma.order.findFirst({
       where: {
         OR: [{ paymentIntentId }, { paymentId: paymentIntentId }],
       },
@@ -1426,6 +1428,34 @@ export async function getOrderBySessionId(sessionId: string) {
         },
       },
     });
+
+    if (!order) {
+      // Beat the webhook race: user often lands on /success before Stripe POSTs.
+      try {
+        await fulfillCheckoutSessionCompleted(session);
+      } catch (syncError) {
+        console.error(
+          "Checkout success sync failed (webhook may still process):",
+          syncError,
+        );
+      }
+      order = await prisma.order.findFirst({
+        where: {
+          OR: [{ paymentIntentId }, { paymentId: paymentIntentId }],
+        },
+        include: {
+          items: {
+            include: {
+              product: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    }
 
     if (!order) {
       return null;
@@ -1728,6 +1758,7 @@ export async function createStripeCheckoutSession(
         return {
           price_data: {
             currency: "usd",
+            tax_behavior: "exclusive",
             product_data: {
               name: r.displayName,
               images: firstImage ? [firstImage] : [],
@@ -1743,6 +1774,7 @@ export async function createStripeCheckoutSession(
       lineItems.push({
         price_data: {
           currency: "usd",
+          tax_behavior: "exclusive",
           product_data: {
             name: "Shipping & Handling",
           },
@@ -1756,6 +1788,7 @@ export async function createStripeCheckoutSession(
       lineItems.push({
         price_data: {
           currency: "usd",
+          tax_behavior: "exclusive",
           product_data: {
             name: `Discount: ${couponCodeForMetadata}`,
           },
@@ -1779,9 +1812,14 @@ export async function createStripeCheckoutSession(
     }));
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
       line_items: lineItems,
       mode: "payment",
+      automatic_tax: { enabled: true },
+      customer_update: {
+        name: "auto",
+        shipping: "auto",
+        address: "auto",
+      },
       success_url: `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/checkout`,
       customer: customerId,
@@ -1813,11 +1851,15 @@ export async function createStripeCheckoutSession(
         discountAmount: serverDiscountAmount.toString(),
         isPickup: isPickup ? "true" : "false",
       },
-      ...(!isPickup && {
-        shipping_address_collection: {
-          allowed_countries: ["US", "CA", "GB", "AU", "IN"],
-        },
-      }),
+      ...(isPickup
+        ? {
+            billing_address_collection: "required",
+          }
+        : {
+            shipping_address_collection: {
+              allowed_countries: ["US", "CA", "GB", "AU", "IN"],
+            },
+          }),
     });
 
     return { url: session.url };
@@ -2446,6 +2488,329 @@ export async function updateTrackingNumber(orderId: string, trackingNumber: stri
   }
 }
 
+function isStripeCheckoutSessionNonProductLine(
+  line: Stripe.LineItem,
+): boolean {
+  const desc = line.description ?? "";
+  if (desc === "Shipping & Handling") return true;
+  if (desc.startsWith("Discount:")) return true;
+  if (/^tax\b/i.test(desc)) return true;
+  return false;
+}
+
+function stripeProductLineItemsForFulfillment(
+  allLines: Stripe.LineItem[],
+  productCount: number,
+): Stripe.LineItem[] {
+  const productLines = allLines.filter(
+    (li) => !isStripeCheckoutSessionNonProductLine(li),
+  );
+  return productLines.slice(0, productCount);
+}
+
+/** Webhook + success-page sync: single code path (see stripe-recommendations). */
+async function fulfillCheckoutSessionCompleted(
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  const metadata = session.metadata;
+
+  if (!metadata?.items) {
+    throw new Error("Missing metadata in session");
+  }
+
+  let parsedItemsJson: unknown;
+  try {
+    parsedItemsJson = JSON.parse(metadata.items);
+  } catch (parseError) {
+    console.error("Failed to parse Stripe items metadata:", parseError);
+    throw new Error("Invalid metadata.items payload");
+  }
+
+  const itemsParse = z
+    .array(StripeWebhookMetadataItemSchema)
+    .safeParse(parsedItemsJson);
+  if (!itemsParse.success) {
+    console.error("Stripe metadata.items validation:", itemsParse.error);
+    throw new Error("Invalid metadata.items shape");
+  }
+  const metadataItems = itemsParse.data;
+
+  const stripeLineItems = await stripe.checkout.sessions.listLineItems(
+    session.id,
+    {
+      limit: 100,
+    },
+  );
+
+  const productStripeLines = stripeProductLineItemsForFulfillment(
+    stripeLineItems.data,
+    metadataItems.length,
+  );
+
+  const mappedItems = metadataItems.map((item, index) => {
+    const lineItem = productStripeLines[index];
+    const quantity = Number(lineItem?.quantity ?? item.quantity ?? 1);
+    const unitAmount = lineItem?.price?.unit_amount;
+
+    return {
+      productId: item.originalProductId || item.id,
+      quantity,
+      price: unitAmount != null ? unitAmount / 100 : item.price,
+      comboId: item.comboId || null,
+      color: item.color || null,
+      size: item.size || null,
+      name: item.name || null,
+    };
+  });
+
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent?.id || null;
+
+  const stripeCustomerId =
+    typeof session.customer === "string"
+      ? session.customer
+      : session.customer?.id || null;
+
+  const customerEmailFromCustomer =
+    typeof session.customer === "object" &&
+    session.customer &&
+    "email" in session.customer &&
+    typeof session.customer.email === "string"
+      ? session.customer.email
+      : "";
+
+  const customerEmail =
+    session.customer_details?.email ||
+    session.customer_email ||
+    customerEmailFromCustomer ||
+    "";
+  const stripeShippingDetails =
+    session.collected_information?.shipping_details;
+  const customerName =
+    metadata.customerName ||
+    session.customer_details?.name ||
+    stripeShippingDetails?.name ||
+    "";
+
+  const stripeAddress =
+    stripeShippingDetails?.address || session.customer_details?.address;
+  const isPickup = metadata.isPickup === "true";
+  const shippingAddress = {
+    name: customerName || null,
+    line1: (stripeAddress?.line1 || metadata.addressLine1 || "").trim(),
+    line2: stripeAddress?.line2 || metadata.addressLine2 || "" || null,
+    city: (stripeAddress?.city || metadata.city || "").trim(),
+    state: stripeAddress?.state || null,
+    postalCode: (
+      stripeAddress?.postal_code ||
+      metadata.postalCode ||
+      ""
+    ).trim(),
+    country: (stripeAddress?.country || metadata.country || "").trim(),
+    isPickup,
+  };
+
+  const orderAddress = {
+    line1: shippingAddress.line1 || (isPickup ? "STORE PICKUP" : ""),
+    line2: shippingAddress.line2,
+    city: shippingAddress.city || (isPickup ? "PICKUP" : ""),
+    postalCode: shippingAddress.postalCode || (isPickup ? "PICKUP" : ""),
+    country: shippingAddress.country || "US",
+  };
+
+  const orderId = metadata.orderId || `ORD-${session.id}`;
+  const totalAmount = (session.amount_total || 0) / 100;
+  const couponCode = metadata.couponCode || null;
+  const discountAmount = metadata.discountAmount
+    ? parseFloat(metadata.discountAmount)
+    : 0;
+
+  const existingOrder = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { id: true },
+  });
+  const isNewOrder = !existingOrder;
+
+  const order = await prisma.order.upsert({
+    where: { id: orderId },
+    update: {
+      customerName,
+      customerEmail,
+      addressLine1: orderAddress.line1,
+      addressLine2: orderAddress.line2,
+      city: orderAddress.city,
+      postalCode: orderAddress.postalCode,
+      country: orderAddress.country,
+      shippingAddress: shippingAddress as Prisma.InputJsonValue,
+      totalAmount,
+      paymentIntentId,
+      paymentId: paymentIntentId,
+      stripeCustomerId,
+      couponCode,
+      discountAmount,
+      isPickup,
+      items: {
+        deleteMany: {},
+        create: mappedItems.map(
+          ({ productId, quantity, price, comboId, color, size }) => ({
+            productId,
+            quantity,
+            price,
+            comboId,
+            color,
+            size,
+          }),
+        ),
+      },
+    },
+    create: {
+      id: orderId,
+      customerName,
+      customerEmail,
+      addressLine1: orderAddress.line1,
+      addressLine2: orderAddress.line2,
+      city: orderAddress.city,
+      postalCode: orderAddress.postalCode,
+      country: orderAddress.country,
+      shippingAddress: shippingAddress as Prisma.InputJsonValue,
+      totalAmount,
+      paymentIntentId,
+      paymentId: paymentIntentId,
+      stripeCustomerId,
+      status: "PENDING",
+      couponCode,
+      discountAmount,
+      isPickup,
+      items: {
+        create: mappedItems.map(
+          ({ productId, quantity, price, comboId, color, size }) => ({
+            productId,
+            quantity,
+            price,
+            comboId,
+            color,
+            size,
+          }),
+        ),
+      },
+    },
+  });
+
+  if (isNewOrder) {
+    for (const item of mappedItems) {
+      await prisma.product.update({
+        where: { id: item.productId },
+        data: {
+          stock: {
+            decrement: item.quantity,
+          },
+        },
+      });
+    }
+
+    let emailItems: OrderConfirmationItem[] = [];
+    if (mappedItems[0]?.name) {
+      emailItems = mappedItems.map((item) => ({
+        name: item.name || "Item",
+        quantity: item.quantity,
+        price: item.price,
+        size: item.size,
+      }));
+    } else {
+      const products = await prisma.product.findMany({
+        where: { id: { in: mappedItems.map((item) => item.productId) } },
+        select: { id: true, name: true },
+      });
+      const productMap = new Map<string, string>(
+        products.map((product: { id: string; name: string }) => [
+          product.id,
+          product.name,
+        ]),
+      );
+      emailItems = mappedItems.map((item) => ({
+        name: productMap.get(item.productId) ?? "Item",
+        quantity: item.quantity,
+        price: item.price,
+        size: item.size,
+      }));
+    }
+
+    try {
+      await sendOrderConfirmationEmail({
+        orderId: order.id,
+        customerName,
+        customerEmail,
+        items: emailItems,
+        totalAmount,
+        shippingAddress: {
+          line1: orderAddress.line1,
+          line2: orderAddress.line2,
+          city: orderAddress.city,
+          postalCode: orderAddress.postalCode,
+          country: orderAddress.country,
+        },
+        isPickup,
+      });
+      console.log(
+        "Order confirmation email sent successfully to:",
+        customerEmail,
+      );
+    } catch (emailError) {
+      console.error("Failed to send order confirmation email:", emailError);
+    }
+
+    try {
+      const storeEmailItems: StoreNotificationItem[] = mappedItems.map(
+        (item) => ({
+          name:
+            item.name ||
+            emailItems.find((ei) => ei.name === item.name)?.name ||
+            "Item",
+          quantity: item.quantity,
+          price: item.price,
+          size: item.size,
+          color: item.color,
+        }),
+      );
+
+      await sendStoreOrderNotificationEmail({
+        orderId: order.id,
+        customerName,
+        customerEmail,
+        items: storeEmailItems,
+        totalAmount,
+        shippingAddress: {
+          line1: orderAddress.line1,
+          line2: orderAddress.line2,
+          city: orderAddress.city,
+          postalCode: orderAddress.postalCode,
+          country: orderAddress.country,
+        },
+        isPickup,
+        couponCode,
+        discountAmount: discountAmount ?? null,
+        createdAt: new Date(),
+      });
+      console.log("Store notification email sent successfully");
+    } catch (storeEmailError) {
+      console.error(
+        "Failed to send store notification email:",
+        storeEmailError,
+      );
+    }
+  } else {
+    console.log(
+      `Order ${order.id} already exists; skipped duplicate stock/email side effects.`,
+    );
+  }
+
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
 export async function handleStripeWebhook(payload: string, signature: string) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -2462,299 +2827,7 @@ export async function handleStripeWebhook(payload: string, signature: string) {
 
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
-      const metadata = session.metadata;
-
-      if (!metadata?.items) {
-        throw new Error("Missing metadata in session");
-      }
-
-      let parsedItemsJson: unknown;
-      try {
-        parsedItemsJson = JSON.parse(metadata.items);
-      } catch (parseError) {
-        console.error("Failed to parse Stripe items metadata:", parseError);
-        throw new Error("Invalid metadata.items payload");
-      }
-
-      const itemsParse = z
-        .array(StripeWebhookMetadataItemSchema)
-        .safeParse(parsedItemsJson);
-      if (!itemsParse.success) {
-        console.error("Stripe metadata.items validation:", itemsParse.error);
-        throw new Error("Invalid metadata.items shape");
-      }
-      const metadataItems = itemsParse.data;
-
-      const stripeLineItems = await stripe.checkout.sessions.listLineItems(
-        session.id,
-        {
-          limit: 100,
-        },
-      );
-
-      const mappedItems = metadataItems.map((item, index) => {
-        const lineItem = stripeLineItems.data[index];
-        const quantity = Number(lineItem?.quantity ?? item.quantity ?? 1);
-        const unitAmount = lineItem?.price?.unit_amount;
-
-        return {
-          productId: item.originalProductId || item.id,
-          quantity,
-          price: unitAmount != null ? unitAmount / 100 : item.price,
-          comboId: item.comboId || null,
-          color: item.color || null,
-          size: item.size || null,
-          name: item.name || null,
-        };
-      });
-
-      const paymentIntentId =
-        typeof session.payment_intent === "string"
-          ? session.payment_intent
-          : session.payment_intent?.id || null;
-
-      const stripeCustomerId =
-        typeof session.customer === "string"
-          ? session.customer
-          : session.customer?.id || null;
-
-      const customerEmailFromCustomer =
-        typeof session.customer === "object" &&
-        session.customer &&
-        "email" in session.customer &&
-        typeof session.customer.email === "string"
-          ? session.customer.email
-          : "";
-
-      const customerEmail =
-        session.customer_details?.email ||
-        session.customer_email ||
-        customerEmailFromCustomer ||
-        "";
-      const stripeShippingDetails =
-        session.collected_information?.shipping_details;
-      const customerName =
-        metadata.customerName ||
-        session.customer_details?.name ||
-        stripeShippingDetails?.name ||
-        "";
-
-      const stripeAddress =
-        stripeShippingDetails?.address || session.customer_details?.address;
-      const isPickup = metadata.isPickup === "true";
-      const shippingAddress = {
-        name: customerName || null,
-        line1: (stripeAddress?.line1 || metadata.addressLine1 || "").trim(),
-        line2: stripeAddress?.line2 || metadata.addressLine2 || "" || null,
-        city: (stripeAddress?.city || metadata.city || "").trim(),
-        state: stripeAddress?.state || null,
-        postalCode: (
-          stripeAddress?.postal_code ||
-          metadata.postalCode ||
-          ""
-        ).trim(),
-        country: (stripeAddress?.country || metadata.country || "").trim(),
-        isPickup,
-      };
-
-      const orderAddress = {
-        line1: shippingAddress.line1 || (isPickup ? "STORE PICKUP" : ""),
-        line2: shippingAddress.line2,
-        city: shippingAddress.city || (isPickup ? "PICKUP" : ""),
-        postalCode: shippingAddress.postalCode || (isPickup ? "PICKUP" : ""),
-        country: shippingAddress.country || "US",
-      };
-
-      const orderId = metadata.orderId || `ORD-${session.id}`;
-      const totalAmount = (session.amount_total || 0) / 100;
-      const couponCode = metadata.couponCode || null;
-      const discountAmount = metadata.discountAmount
-        ? parseFloat(metadata.discountAmount)
-        : 0;
-
-      const existingOrder = await prisma.order.findUnique({
-        where: { id: orderId },
-        select: { id: true },
-      });
-      const isNewOrder = !existingOrder;
-
-      const order = await prisma.order.upsert({
-        where: { id: orderId },
-        update: {
-          customerName,
-          customerEmail,
-          addressLine1: orderAddress.line1,
-          addressLine2: orderAddress.line2,
-          city: orderAddress.city,
-          postalCode: orderAddress.postalCode,
-          country: orderAddress.country,
-          shippingAddress: shippingAddress as Prisma.InputJsonValue,
-          totalAmount,
-          paymentIntentId,
-          paymentId: paymentIntentId,
-          stripeCustomerId,
-          couponCode,
-          discountAmount,
-          isPickup,
-          items: {
-            deleteMany: {},
-            create: mappedItems.map(
-              ({ productId, quantity, price, comboId, color, size }) => ({
-                productId,
-                quantity,
-                price,
-                comboId,
-                color,
-                size,
-              }),
-            ),
-          },
-        },
-        create: {
-          id: orderId,
-          customerName,
-          customerEmail,
-          addressLine1: orderAddress.line1,
-          addressLine2: orderAddress.line2,
-          city: orderAddress.city,
-          postalCode: orderAddress.postalCode,
-          country: orderAddress.country,
-          shippingAddress: shippingAddress as Prisma.InputJsonValue,
-          totalAmount,
-          paymentIntentId,
-          paymentId: paymentIntentId,
-          stripeCustomerId,
-          status: "PENDING",
-          couponCode,
-          discountAmount,
-          isPickup,
-          items: {
-            create: mappedItems.map(
-              ({ productId, quantity, price, comboId, color, size }) => ({
-                productId,
-                quantity,
-                price,
-                comboId,
-                color,
-                size,
-              }),
-            ),
-          },
-        },
-      });
-
-      if (isNewOrder) {
-        for (const item of mappedItems) {
-          await prisma.product.update({
-            where: { id: item.productId },
-            data: {
-              stock: {
-                decrement: item.quantity,
-              },
-            },
-          });
-        }
-
-        let emailItems: OrderConfirmationItem[] = [];
-        if (mappedItems[0]?.name) {
-          emailItems = mappedItems.map((item) => ({
-            name: item.name || "Item",
-            quantity: item.quantity,
-            price: item.price,
-            size: item.size,
-          }));
-        } else {
-          const products = await prisma.product.findMany({
-            where: { id: { in: mappedItems.map((item) => item.productId) } },
-            select: { id: true, name: true },
-          });
-          const productMap = new Map<string, string>(
-            products.map((product: { id: string; name: string }) => [
-              product.id,
-              product.name,
-            ]),
-          );
-          emailItems = mappedItems.map((item) => ({
-            name: productMap.get(item.productId) ?? "Item",
-            quantity: item.quantity,
-            price: item.price,
-            size: item.size,
-          }));
-        }
-
-        try {
-          await sendOrderConfirmationEmail({
-            orderId: order.id,
-            customerName,
-            customerEmail,
-            items: emailItems,
-            totalAmount,
-            shippingAddress: {
-              line1: orderAddress.line1,
-              line2: orderAddress.line2,
-              city: orderAddress.city,
-              postalCode: orderAddress.postalCode,
-              country: orderAddress.country,
-            },
-            isPickup,
-          });
-          console.log(
-            "Order confirmation email sent successfully to:",
-            customerEmail,
-          );
-        } catch (emailError) {
-          console.error("Failed to send order confirmation email:", emailError);
-        }
-
-        // Send store notification email
-        try {
-          const storeEmailItems: StoreNotificationItem[] = mappedItems.map(
-            (item) => ({
-              name:
-                item.name ||
-                emailItems.find((ei) => ei.name === item.name)?.name ||
-                "Item",
-              quantity: item.quantity,
-              price: item.price,
-              size: item.size,
-              color: item.color,
-            }),
-          );
-
-          await sendStoreOrderNotificationEmail({
-            orderId: order.id,
-            customerName,
-            customerEmail,
-            items: storeEmailItems,
-            totalAmount,
-            shippingAddress: {
-              line1: orderAddress.line1,
-              line2: orderAddress.line2,
-              city: orderAddress.city,
-              postalCode: orderAddress.postalCode,
-              country: orderAddress.country,
-            },
-            isPickup,
-            couponCode,
-            discountAmount: discountAmount ?? null,
-            createdAt: new Date(),
-          });
-          console.log("Store notification email sent successfully");
-        } catch (storeEmailError) {
-          console.error(
-            "Failed to send store notification email:",
-            storeEmailError,
-          );
-        }
-      } else {
-        console.log(
-          `Order ${order.id} already exists; skipped duplicate stock/email side effects.`,
-        );
-      }
-
-      revalidatePath("/admin/orders");
-      revalidatePath("/admin");
-      revalidatePath("/");
+      await fulfillCheckoutSessionCompleted(session);
     }
 
     return { received: true };
