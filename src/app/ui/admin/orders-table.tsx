@@ -23,6 +23,7 @@ export type AdminOrderRow = {
   addressLine1: string;
   addressLine2: string | null;
   city: string;
+  state: string | null;
   postalCode: string;
   country: string;
   status: "PENDING" | "SHIPPED" | "DELIVERED";
@@ -280,8 +281,9 @@ export default function OrdersTable({ orders }: { orders: AdminOrderRow[] }) {
                         </div>
                       </td>
                       <td className="px-3 py-3 max-w-xs truncate">
-                        {order.addressLine1}, {order.city}, {order.postalCode},{" "}
-                        {order.country}
+                        {order.addressLine1}, {order.city}
+                        {order.state ? `, ${order.state}` : ""}{" "}
+                        {order.postalCode}, {order.country}
                       </td>
                       <td className="whitespace-nowrap px-3 py-3">
                         <span

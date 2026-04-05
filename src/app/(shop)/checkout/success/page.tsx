@@ -201,7 +201,10 @@ function SuccessContent() {
                         </p>
                       ) : null}
                       <p className="text-foreground/70">
-                        {order.shippingAddress.city},{" "}
+                        {order.shippingAddress.city}
+                        {order.shippingAddress.state
+                          ? `, ${order.shippingAddress.state}`
+                          : ""}{" "}
                         {order.shippingAddress.postalCode}
                       </p>
                       <p className="text-foreground/70">

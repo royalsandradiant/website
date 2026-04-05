@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CA_PROVINCE_CODES, US_STATE_CODES } from "./region-options";
 
 /** Checkout address fields + pickup flag; shipping fields required when not pickup. */
 export const checkoutFormSchema = z
@@ -13,6 +14,7 @@ export const checkoutFormSchema = z
     addressLine1: z.string().optional(),
     addressLine2: z.string().optional(),
     city: z.string().optional(),
+    state: z.string().optional(),
     postalCode: z.string().optional(),
     country: z.string().optional(),
   })
@@ -34,18 +36,45 @@ export const checkoutFormSchema = z
         message: "Please fill in your city.",
       });
     }
+    const country = data.country?.trim();
+    if (!country) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["country"],
+        message: "Please select your country.",
+      });
+    }
+    const stateRaw = data.state?.trim() ?? "";
+    if (!stateRaw) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["state"],
+        message: "Please select or enter your state or province.",
+      });
+    } else if (country === "US") {
+      const code = stateRaw.toUpperCase();
+      if (!US_STATE_CODES.has(code)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["state"],
+          message: "Choose a valid US state.",
+        });
+      }
+    } else if (country === "CA") {
+      const code = stateRaw.toUpperCase();
+      if (!CA_PROVINCE_CODES.has(code)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["state"],
+          message: "Choose a valid Canadian province or territory.",
+        });
+      }
+    }
     if (!data.postalCode?.trim()) {
       ctx.addIssue({
         code: "custom",
         path: ["postalCode"],
         message: "Please fill in your postal code.",
-      });
-    }
-    if (!data.country?.trim()) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["country"],
-        message: "Please select your country.",
       });
     }
   });

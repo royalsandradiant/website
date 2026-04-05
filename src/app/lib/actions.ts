@@ -21,6 +21,7 @@ import {
   prepareWebpUploadFromFile,
 } from "./image-upload";
 import { prisma } from "./prisma";
+import { CA_PROVINCE_CODES, US_STATE_CODES } from "./region-options";
 import { buildTrackingLink } from "./shipping-tracking";
 import { buildSlugPath, getBaseUrl, slugify } from "./utils";
 
@@ -1152,6 +1153,7 @@ const OrderSchema = z.object({
   addressLine1: z.string().min(1),
   addressLine2: z.string().optional().nullable(),
   city: z.string().min(1),
+  state: z.string().optional().nullable(),
   postalCode: z.string().min(1),
   country: z.string().min(1),
   totalAmount: z.number().gt(0),
@@ -1186,6 +1188,7 @@ export async function createOrder(data: z.infer<typeof OrderSchema>) {
         addressLine1: orderData.addressLine1,
         addressLine2: orderData.addressLine2,
         city: orderData.city,
+        state: orderData.state ?? null,
         postalCode: orderData.postalCode,
         country: orderData.country,
         totalAmount: orderData.totalAmount,
@@ -1485,6 +1488,10 @@ export async function getOrderBySessionId(sessionId: string) {
         typeof shippingAddressFromJson?.city === "string"
           ? shippingAddressFromJson.city
           : order.city,
+      state:
+        typeof shippingAddressFromJson?.state === "string"
+          ? shippingAddressFromJson.state
+          : order.state,
       postalCode:
         typeof shippingAddressFromJson?.postalCode === "string"
           ? shippingAddressFromJson.postalCode
@@ -1548,6 +1555,7 @@ export type ShippingInfo = {
   addressLine1: string;
   addressLine2?: string;
   city: string;
+  state: string;
   postalCode: string;
   country: string;
 };
@@ -1570,10 +1578,41 @@ export async function createStripeCheckoutSession(
       return { url: null, error: "Your cart is empty." };
     }
 
+    let shipping: ShippingInfo = shippingInfo;
+    if (!isPickup) {
+      const country = shippingInfo.country.trim();
+      const stateIn = shippingInfo.state.trim();
+      if (!stateIn) {
+        return { url: null, error: "State or province is required." };
+      }
+      const stateNorm =
+        country === "US" || country === "CA"
+          ? stateIn.toUpperCase()
+          : stateIn;
+      if (country === "US" && !US_STATE_CODES.has(stateNorm)) {
+        return { url: null, error: "Please choose a valid US state." };
+      }
+      if (country === "CA" && !CA_PROVINCE_CODES.has(stateNorm)) {
+        return {
+          url: null,
+          error: "Please choose a valid Canadian province or territory.",
+        };
+      }
+      shipping = {
+        ...shippingInfo,
+        addressLine1: shippingInfo.addressLine1.trim(),
+        addressLine2: shippingInfo.addressLine2?.trim(),
+        city: shippingInfo.city.trim(),
+        state: stateNorm,
+        postalCode: shippingInfo.postalCode.trim(),
+        country,
+      };
+    }
+
     // Find existing customer or create new one to pre-fill Stripe checkout
     let customerId: string | undefined;
     const existingCustomers = await stripe.customers.list({
-      email: shippingInfo.customerEmail,
+      email: shipping.customerEmail,
       limit: 1,
     });
 
@@ -1582,16 +1621,17 @@ export async function createStripeCheckoutSession(
       const customer = await stripe.customers.update(
         existingCustomers.data[0].id,
         {
-          name: shippingInfo.customerName,
+          name: shipping.customerName,
           ...(!isPickup && {
             shipping: {
-              name: shippingInfo.customerName,
+              name: shipping.customerName,
               address: {
-                line1: shippingInfo.addressLine1,
-                line2: shippingInfo.addressLine2 || undefined,
-                city: shippingInfo.city,
-                postal_code: shippingInfo.postalCode,
-                country: shippingInfo.country,
+                line1: shipping.addressLine1,
+                line2: shipping.addressLine2 || undefined,
+                city: shipping.city,
+                state: shipping.state || undefined,
+                postal_code: shipping.postalCode,
+                country: shipping.country,
               },
             },
           }),
@@ -1601,17 +1641,18 @@ export async function createStripeCheckoutSession(
     } else {
       // Create new customer with shipping info
       const customer = await stripe.customers.create({
-        email: shippingInfo.customerEmail,
-        name: shippingInfo.customerName,
+        email: shipping.customerEmail,
+        name: shipping.customerName,
         ...(!isPickup && {
           shipping: {
-            name: shippingInfo.customerName,
+            name: shipping.customerName,
             address: {
-              line1: shippingInfo.addressLine1,
-              line2: shippingInfo.addressLine2 || undefined,
-              city: shippingInfo.city,
-              postal_code: shippingInfo.postalCode,
-              country: shippingInfo.country,
+              line1: shipping.addressLine1,
+              line2: shipping.addressLine2 || undefined,
+              city: shipping.city,
+              state: shipping.state || undefined,
+              postal_code: shipping.postalCode,
+              country: shipping.country,
             },
           },
         }),
@@ -1826,6 +1867,9 @@ export async function createStripeCheckoutSession(
     const session = await stripe.checkout.sessions.create({
       line_items: lineItems,
       mode: "payment",
+      // Tax is only calculated where you have an active registration in Stripe
+      // (Dashboard → Settings → Tax → Registrations). NJ-only behavior usually
+      // means only New Jersey is registered there—not fixable in app code alone.
       automatic_tax: { enabled: true },
       customer_update: {
         name: "auto",
@@ -1838,12 +1882,13 @@ export async function createStripeCheckoutSession(
       payment_intent_data: {
         metadata: {
           orderId: orderId,
-          customerName: shippingInfo.customerName,
-          addressLine1: shippingInfo.addressLine1,
-          addressLine2: shippingInfo.addressLine2 || "",
-          city: shippingInfo.city,
-          postalCode: shippingInfo.postalCode,
-          country: shippingInfo.country,
+          customerName: shipping.customerName,
+          addressLine1: shipping.addressLine1,
+          addressLine2: shipping.addressLine2 || "",
+          city: shipping.city,
+          state: shipping.state,
+          postalCode: shipping.postalCode,
+          country: shipping.country,
           items: JSON.stringify(itemsMetadata),
           couponCode: couponCodeForMetadata,
           discountAmount: serverDiscountAmount.toString(),
@@ -1852,12 +1897,13 @@ export async function createStripeCheckoutSession(
       },
       metadata: {
         orderId: orderId,
-        customerName: shippingInfo.customerName,
-        addressLine1: shippingInfo.addressLine1,
-        addressLine2: shippingInfo.addressLine2 || "",
-        city: shippingInfo.city,
-        postalCode: shippingInfo.postalCode,
-        country: shippingInfo.country,
+        customerName: shipping.customerName,
+        addressLine1: shipping.addressLine1,
+        addressLine2: shipping.addressLine2 || "",
+        city: shipping.city,
+        state: shipping.state,
+        postalCode: shipping.postalCode,
+        country: shipping.country,
         items: JSON.stringify(itemsMetadata),
         couponCode: couponCodeForMetadata,
         discountAmount: serverDiscountAmount.toString(),
@@ -1899,6 +1945,7 @@ type OrderConfirmationData = {
     line1: string;
     line2?: string | null;
     city: string;
+    state?: string | null;
     postalCode: string;
     country: string;
   };
@@ -1909,7 +1956,8 @@ const STORE_PICKUP_ADDRESS = {
   line1: "210 Terrace Avenue",
   line2: null,
   city: "Jersey City",
-  postalCode: "NJ 07307",
+  state: "NJ",
+  postalCode: "07307",
   country: "United States",
 };
 
@@ -1947,10 +1995,16 @@ async function sendOrderConfirmationEmail(
 
   // Format address (use store address for pickup orders)
   const addressToUse = isPickup ? STORE_PICKUP_ADDRESS : shippingAddress;
+  const cityStatePostal = [
+    addressToUse.city,
+    [addressToUse.state, addressToUse.postalCode].filter(Boolean).join(" "),
+  ]
+    .filter(Boolean)
+    .join(", ");
   const formattedAddress = [
     addressToUse.line1,
     addressToUse.line2,
-    `${addressToUse.city}, ${addressToUse.postalCode}`,
+    cityStatePostal,
     addressToUse.country,
   ]
     .filter(Boolean)
@@ -2110,11 +2164,16 @@ async function sendStoreOrderNotificationEmail(
     )
     .join("");
 
-  // Format address
+  const cityStatePostal = [
+    shippingAddress.city,
+    [shippingAddress.state, shippingAddress.postalCode].filter(Boolean).join(" "),
+  ]
+    .filter(Boolean)
+    .join(", ");
   const formattedAddress = [
     shippingAddress.line1,
     shippingAddress.line2,
-    `${shippingAddress.city}, ${shippingAddress.postalCode}`,
+    cityStatePostal,
     shippingAddress.country,
   ]
     .filter(Boolean)
@@ -2269,6 +2328,7 @@ type StoreNotificationData = {
     line1: string;
     line2?: string | null;
     city: string;
+    state?: string | null;
     postalCode: string;
     country: string;
   };
@@ -2609,12 +2669,14 @@ async function fulfillCheckoutSessionCompleted(
   const stripeAddress =
     stripeShippingDetails?.address || session.customer_details?.address;
   const isPickup = metadata.isPickup === "true";
+  const metaState =
+    typeof metadata.state === "string" ? metadata.state.trim() : "";
   const shippingAddress = {
     name: customerName || null,
     line1: (stripeAddress?.line1 || metadata.addressLine1 || "").trim(),
     line2: stripeAddress?.line2 || metadata.addressLine2 || "" || null,
     city: (stripeAddress?.city || metadata.city || "").trim(),
-    state: stripeAddress?.state || null,
+    state: (stripeAddress?.state || metaState || "").trim() || null,
     postalCode: (
       stripeAddress?.postal_code ||
       metadata.postalCode ||
@@ -2628,6 +2690,7 @@ async function fulfillCheckoutSessionCompleted(
     line1: shippingAddress.line1 || (isPickup ? "STORE PICKUP" : ""),
     line2: shippingAddress.line2,
     city: shippingAddress.city || (isPickup ? "PICKUP" : ""),
+    state: isPickup ? null : shippingAddress.state,
     postalCode: shippingAddress.postalCode || (isPickup ? "PICKUP" : ""),
     country: shippingAddress.country || "US",
   };
@@ -2653,6 +2716,7 @@ async function fulfillCheckoutSessionCompleted(
       addressLine1: orderAddress.line1,
       addressLine2: orderAddress.line2,
       city: orderAddress.city,
+      state: orderAddress.state,
       postalCode: orderAddress.postalCode,
       country: orderAddress.country,
       shippingAddress: shippingAddress as Prisma.InputJsonValue,
@@ -2684,6 +2748,7 @@ async function fulfillCheckoutSessionCompleted(
       addressLine1: orderAddress.line1,
       addressLine2: orderAddress.line2,
       city: orderAddress.city,
+      state: orderAddress.state,
       postalCode: orderAddress.postalCode,
       country: orderAddress.country,
       shippingAddress: shippingAddress as Prisma.InputJsonValue,
@@ -2760,6 +2825,7 @@ async function fulfillCheckoutSessionCompleted(
           line1: orderAddress.line1,
           line2: orderAddress.line2,
           city: orderAddress.city,
+          state: orderAddress.state,
           postalCode: orderAddress.postalCode,
           country: orderAddress.country,
         },
@@ -2797,6 +2863,7 @@ async function fulfillCheckoutSessionCompleted(
           line1: orderAddress.line1,
           line2: orderAddress.line2,
           city: orderAddress.city,
+          state: orderAddress.state,
           postalCode: orderAddress.postalCode,
           country: orderAddress.country,
         },

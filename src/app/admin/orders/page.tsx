@@ -17,6 +17,7 @@ export default async function OrdersPage() {
       addressLine1: order.addressLine1,
       addressLine2: order.addressLine2,
       city: order.city,
+      state: order.state,
       postalCode: order.postalCode,
       country: order.country,
       status: order.status,

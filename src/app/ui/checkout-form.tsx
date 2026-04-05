@@ -19,7 +19,28 @@ import {
   checkoutFormSchema,
 } from "@/app/lib/checkout-form-schema";
 import type { ShippingRule } from "@/app/lib/definitions";
+import {
+  CA_PROVINCE_OPTIONS,
+  US_STATE_OPTIONS,
+} from "@/app/lib/region-options";
 import { inferShippingCategoryFromText } from "@/app/lib/shipping";
+
+/** TanStack Form + Zod store issues as `{ message }` objects, not strings. */
+function formatFieldValidatorError(error: unknown): string {
+  if (error == null) {
+    return "";
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const msg = (error as { message: unknown }).message;
+    if (typeof msg === "string") {
+      return msg;
+    }
+  }
+  return "Invalid value";
+}
 
 export default function CheckoutForm({
   shippingRules,
@@ -63,6 +84,7 @@ export default function CheckoutForm({
       addressLine1: "",
       addressLine2: "",
       city: "",
+      state: "",
       postalCode: "",
       country: "",
     } as CheckoutFormValues,
@@ -72,6 +94,12 @@ export default function CheckoutForm({
     onSubmit: async ({ value }) => {
       setSubmitError("");
       try {
+        const country = value.country ?? "";
+        const rawState = value.state ?? "";
+        const stateForApi =
+          country === "US" || country === "CA"
+            ? rawState.trim().toUpperCase()
+            : rawState.trim();
         const result = await createStripeCheckoutSession(
           items.map((item) => ({
             id: item.id,
@@ -90,6 +118,7 @@ export default function CheckoutForm({
                 customerEmail: value.customerEmail,
                 addressLine1: "STORE PICKUP",
                 city: "PICKUP",
+                state: "",
                 postalCode: "PICKUP",
                 country: "US",
               }
@@ -99,8 +128,9 @@ export default function CheckoutForm({
                 addressLine1: value.addressLine1 ?? "",
                 addressLine2: value.addressLine2 ?? "",
                 city: value.city ?? "",
+                state: stateForApi,
                 postalCode: value.postalCode ?? "",
-                country: value.country ?? "",
+                country: country,
               },
           shippingCost,
           appliedCoupon
@@ -125,6 +155,7 @@ export default function CheckoutForm({
   });
 
   const isPickup = useStore(form.store, (s) => s.values.isPickup);
+  const shippingCountry = useStore(form.store, (s) => s.values.country);
   const isSubmitting = useStore(form.store, (s) => s.isSubmitting);
 
   const discountAmount = useMemo(() => {
@@ -266,7 +297,7 @@ export default function CheckoutForm({
                   />
                   {field.state.meta.errors[0] != null ? (
                     <p className="mt-1 text-xs text-red-500">
-                      {String(field.state.meta.errors[0])}
+                      {formatFieldValidatorError(field.state.meta.errors[0])}
                     </p>
                   ) : null}
                 </div>
@@ -295,7 +326,7 @@ export default function CheckoutForm({
                   />
                   {field.state.meta.errors[0] != null ? (
                     <p className="mt-1 text-xs text-red-500">
-                      {String(field.state.meta.errors[0])}
+                      {formatFieldValidatorError(field.state.meta.errors[0])}
                     </p>
                   ) : null}
                 </div>
@@ -330,7 +361,7 @@ export default function CheckoutForm({
                     />
                     {field.state.meta.errors[0] != null ? (
                       <p className="mt-1 text-xs text-red-500">
-                        {String(field.state.meta.errors[0])}
+                        {formatFieldValidatorError(field.state.meta.errors[0])}
                       </p>
                     ) : null}
                   </div>
@@ -358,7 +389,43 @@ export default function CheckoutForm({
                   </div>
                 )}
               </form.Field>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <form.Field name="country">
+                {(field) => (
+                  <div>
+                    <label
+                      htmlFor="country"
+                      className="block text-sm font-medium text-foreground/70 mb-2"
+                    >
+                      Country *
+                    </label>
+                    <select
+                      id="country"
+                      value={field.state.value}
+                      onChange={(e) => {
+                        field.handleChange(e.target.value);
+                        form.setFieldValue("state", "");
+                      }}
+                      onBlur={field.handleBlur}
+                      className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
+                      autoComplete="country"
+                      aria-invalid={field.state.meta.errors.length > 0}
+                    >
+                      <option value="">Select a country</option>
+                      <option value="US">United States</option>
+                      <option value="CA">Canada</option>
+                      <option value="GB">United Kingdom</option>
+                      <option value="AU">Australia</option>
+                      <option value="IN">India</option>
+                    </select>
+                    {field.state.meta.errors[0] != null ? (
+                      <p className="mt-1 text-xs text-red-500">
+                        {formatFieldValidatorError(field.state.meta.errors[0])}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </form.Field>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <form.Field name="city">
                   {(field) => (
                     <div>
@@ -381,7 +448,82 @@ export default function CheckoutForm({
                       />
                       {field.state.meta.errors[0] != null ? (
                         <p className="mt-1 text-xs text-red-500">
-                          {String(field.state.meta.errors[0])}
+                          {formatFieldValidatorError(field.state.meta.errors[0])}
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
+                </form.Field>
+                <form.Field name="state">
+                  {(field) => (
+                    <div>
+                      <label
+                        htmlFor="state"
+                        className="block text-sm font-medium text-foreground/70 mb-2"
+                      >
+                        {shippingCountry === "CA"
+                          ? "Province *"
+                          : "State / Province *"}
+                      </label>
+                      {!shippingCountry ? (
+                        <select
+                          id="state"
+                          disabled
+                          className="w-full px-4 py-3 bg-secondary/30 border border-border rounded-lg text-foreground/50 cursor-not-allowed outline-none"
+                          value=""
+                        >
+                          <option value="">Select country first</option>
+                        </select>
+                      ) : shippingCountry === "US" ? (
+                        <select
+                          id="state"
+                          value={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          onBlur={field.handleBlur}
+                          className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
+                          autoComplete="address-level1"
+                          aria-invalid={field.state.meta.errors.length > 0}
+                        >
+                          <option value="">Select state</option>
+                          {US_STATE_OPTIONS.map((s) => (
+                            <option key={s.code} value={s.code}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : shippingCountry === "CA" ? (
+                        <select
+                          id="state"
+                          value={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          onBlur={field.handleBlur}
+                          className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
+                          autoComplete="address-level1"
+                          aria-invalid={field.state.meta.errors.length > 0}
+                        >
+                          <option value="">Select province</option>
+                          {CA_PROVINCE_OPTIONS.map((s) => (
+                            <option key={s.code} value={s.code}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          id="state"
+                          type="text"
+                          value={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          onBlur={field.handleBlur}
+                          className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
+                          placeholder="County or region"
+                          autoComplete="address-level1"
+                          aria-invalid={field.state.meta.errors.length > 0}
+                        />
+                      )}
+                      {field.state.meta.errors[0] != null ? (
+                        <p className="mt-1 text-xs text-red-500">
+                          {formatFieldValidatorError(field.state.meta.errors[0])}
                         </p>
                       ) : null}
                     </div>
@@ -405,51 +547,17 @@ export default function CheckoutForm({
                         className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
                         placeholder="10001"
                         autoComplete="postal-code"
-                        inputMode="numeric"
                         aria-invalid={field.state.meta.errors.length > 0}
                       />
                       {field.state.meta.errors[0] != null ? (
                         <p className="mt-1 text-xs text-red-500">
-                          {String(field.state.meta.errors[0])}
+                          {formatFieldValidatorError(field.state.meta.errors[0])}
                         </p>
                       ) : null}
                     </div>
                   )}
                 </form.Field>
               </div>
-              <form.Field name="country">
-                {(field) => (
-                  <div>
-                    <label
-                      htmlFor="country"
-                      className="block text-sm font-medium text-foreground/70 mb-2"
-                    >
-                      Country *
-                    </label>
-                    <select
-                      id="country"
-                      value={field.state.value}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      onBlur={field.handleBlur}
-                      className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
-                      autoComplete="country"
-                      aria-invalid={field.state.meta.errors.length > 0}
-                    >
-                      <option value="">Select a country</option>
-                      <option value="US">United States</option>
-                      <option value="CA">Canada</option>
-                      <option value="GB">United Kingdom</option>
-                      <option value="AU">Australia</option>
-                      <option value="IN">India</option>
-                    </select>
-                    {field.state.meta.errors[0] != null ? (
-                      <p className="mt-1 text-xs text-red-500">
-                        {String(field.state.meta.errors[0])}
-                      </p>
-                    ) : null}
-                  </div>
-                )}
-              </form.Field>
             </div>
           ) : (
             <div className="mt-6 p-6 bg-primary/5 border border-primary/20 rounded-xl animate-in fade-in slide-in-from-top-2 duration-300">
