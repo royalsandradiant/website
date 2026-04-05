@@ -1,7 +1,9 @@
 "use client";
 
+import { useForm, useStore } from "@tanstack/react-form";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useRef, useState } from "react";
 import {
   createProduct,
   updateProduct,
@@ -10,9 +12,13 @@ import {
 import { AVAILABLE_SIZES } from "@/app/lib/constants";
 import type {
   LeafCategory,
-  Product,
   ProductWithCategory,
+  State,
 } from "@/app/lib/definitions";
+import {
+  type ProductFormValues,
+  productFormClientSchema,
+} from "@/app/lib/product-form-schema";
 
 interface ProductVariantState {
   colorName: string;
@@ -25,29 +31,69 @@ interface ProductVariantState {
 }
 
 interface ProductFormProps {
-  product?: ProductWithCategory | any;
+  product?: ProductWithCategory;
   categories: LeafCategory[];
 }
 
-export default function ProductForm({ product, categories }: ProductFormProps) {
-  const initialState = { message: "", errors: {} };
-  const action = product ? updateProduct.bind(null, product.id) : createProduct;
-  const [state, dispatch] = useActionState(action, initialState);
+function buildProductFormData(
+  value: ProductFormValues,
+  variants: ProductVariantState[],
+  productSizes: string[],
+  currentImages: string[],
+  product: ProductWithCategory | undefined,
+  sizeChartInput: HTMLInputElement | null,
+  imagesInput: HTMLInputElement | null,
+): FormData {
+  const fd = new FormData();
+  fd.set("name", value.name);
+  fd.set("description", value.description);
+  fd.set("price", value.price);
+  fd.set("categoryId", value.categoryId);
+  fd.set("stock", value.stock);
+  if (value.isFeatured) fd.set("isFeatured", "on");
+  if (value.isOnSale) fd.set("isOnSale", "on");
+  if (value.isCombo) fd.set("isCombo", "on");
+  if (value.isOnSale) {
+    if (value.salePercentage?.trim()) {
+      fd.set("salePercentage", value.salePercentage);
+    }
+    if (value.salePrice?.trim()) {
+      fd.set("salePrice", value.salePrice);
+    }
+  }
+  fd.set("variantsJson", JSON.stringify(variants));
+  fd.set("sizesJson", JSON.stringify(productSizes));
+  if (product?.sizeChartUrl) {
+    fd.set("existingSizeChartUrl", product.sizeChartUrl);
+  }
+  for (const url of currentImages) {
+    fd.append("existingImages", url);
+  }
+  const sc = sizeChartInput?.files?.[0];
+  if (sc && sc.size > 0) {
+    fd.append("sizeChart", sc);
+  }
+  if (imagesInput?.files) {
+    for (const f of imagesInput.files) {
+      if (f.size > 0) fd.append("images", f);
+    }
+  }
+  return fd;
+}
 
-  const [selectedCategoryId, setSelectedCategoryId] = useState(
-    product?.categoryId || "",
-  );
+export default function ProductForm({ product, categories }: ProductFormProps) {
+  const sizeChartRef = useRef<HTMLInputElement>(null);
+  const imagesRef = useRef<HTMLInputElement>(null);
+  const [serverMessage, setServerMessage] = useState("");
+
   const [productSizes, setProductSizes] = useState<string[]>(
     product?.sizes || [],
   );
-  const [isOnSale, setIsOnSale] = useState(product?.isOnSale || false);
-  const [isFeatured, setIsFeatured] = useState(product?.isFeatured || false);
-  const [isCombo, setIsCombo] = useState(product?.isCombo || false);
   const [currentImages, setCurrentImages] = useState<string[]>(
     product?.images || [],
   );
   const [variants, setVariants] = useState<ProductVariantState[]>(
-    product?.variants?.map((v: any) => ({
+    product?.variants?.map((v) => ({
       colorName: v.colorName,
       hexCode: v.hexCode || "",
       price: v.price?.toString() || "",
@@ -57,6 +103,101 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
       images: v.images || [],
     })) || [],
   );
+
+  const form = useForm({
+    defaultValues: {
+      name: product?.name?.toString() ?? "",
+      description: product?.description?.toString() ?? "",
+      price: product?.price != null ? String(product.price) : "",
+      categoryId: product?.categoryId?.toString() ?? "",
+      stock: product?.stock != null ? String(product.stock) : "",
+      salePrice:
+        product?.salePrice != null && Number(product.salePrice) > 0
+          ? String(product.salePrice)
+          : "",
+      salePercentage:
+        product?.salePercentage != null && Number(product.salePercentage) > 0
+          ? String(product.salePercentage)
+          : "",
+      isFeatured: product?.isFeatured ?? false,
+      isOnSale: product?.isOnSale ?? false,
+      isCombo: product?.isCombo ?? false,
+    } as ProductFormValues,
+    validators: {
+      onSubmit: productFormClientSchema,
+    },
+    onSubmit: async ({ value }) => {
+      setServerMessage("");
+      const fd = buildProductFormData(
+        value,
+        variants,
+        productSizes,
+        currentImages,
+        product,
+        sizeChartRef.current,
+        imagesRef.current,
+      );
+      const initial: State = { errors: {}, message: null };
+      try {
+        if (product) {
+          const result = await updateProduct(product.id, initial, fd);
+          if (result?.errors && Object.keys(result.errors).length > 0) {
+            const e = result.errors;
+            for (const key of [
+              "name",
+              "description",
+              "price",
+              "categoryId",
+              "stock",
+            ] as const) {
+              const msgs = e[key];
+              if (msgs?.length) {
+                form.setFieldMeta(key, (prev) => ({
+                  ...prev,
+                  errors: msgs,
+                }));
+              }
+            }
+          }
+          if (result?.message) {
+            setServerMessage(result.message);
+          }
+        } else {
+          const result = await createProduct(initial, fd);
+          if (result?.errors && Object.keys(result.errors).length > 0) {
+            const e = result.errors;
+            for (const key of [
+              "name",
+              "description",
+              "price",
+              "categoryId",
+              "stock",
+            ] as const) {
+              const msgs = e[key];
+              if (msgs?.length) {
+                form.setFieldMeta(key, (prev) => ({
+                  ...prev,
+                  errors: msgs,
+                }));
+              }
+            }
+          }
+          if (result?.message) {
+            setServerMessage(result.message);
+          }
+        }
+      } catch (e) {
+        if (isRedirectError(e)) {
+          throw e;
+        }
+        console.error(e);
+        setServerMessage("Something went wrong. Please try again.");
+      }
+    },
+  });
+
+  const isOnSale = useStore(form.store, (s) => s.values.isOnSale);
+  const isSubmitting = useStore(form.store, (s) => s.isSubmitting);
 
   const addVariant = () => {
     setVariants([
@@ -76,7 +217,7 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
   const updateVariant = (
     index: number,
     field: keyof ProductVariantState,
-    value: any,
+    value: string | string[],
   ) => {
     const newVariants = [...variants];
     newVariants[index] = { ...newVariants[index], [field]: value };
@@ -99,9 +240,9 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
   const handleVariantImages = async (index: number, files: FileList) => {
     const newImages = [...variants[index].images];
     for (let i = 0; i < files.length; i++) {
-      const formData = new FormData();
-      formData.append("image", files[i]);
-      const result = await uploadVariantImage(formData);
+      const fd = new FormData();
+      fd.append("image", files[i]);
+      const result = await uploadVariantImage(fd);
       if (result.success && result.url) {
         newImages.push(result.url);
       }
@@ -121,42 +262,48 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
   };
 
   return (
-    <form action={dispatch} className="space-y-6">
-      <input
-        type="hidden"
-        name="variantsJson"
-        value={JSON.stringify(variants)}
-      />
-      <input
-        type="hidden"
-        name="sizesJson"
-        value={JSON.stringify(productSizes)}
-      />
+    <form
+      className="space-y-6"
+      onSubmit={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        void form.handleSubmit();
+      }}
+    >
       <div className="rounded-md bg-gray-50 p-4 md:p-6">
-        {/* Product Name */}
         <div className="mb-4">
           <label htmlFor="name" className="mb-2 block text-sm font-medium">
             Product Name <span className="text-red-500">*</span>
           </label>
-          <input
-            id="name"
-            name="name"
-            type="text"
-            defaultValue={product?.name}
-            placeholder="Enter product name"
-            className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
-            aria-describedby="name-error"
-          />
-          <div id="name-error" aria-live="polite" aria-atomic="true">
-            {state.errors?.name?.map((error: string) => (
-              <p key={error} className="mt-2 text-sm text-red-500">
-                {error}
-              </p>
-            ))}
-          </div>
+          <form.Field name="name">
+            {(field) => (
+              <>
+                <input
+                  id="name"
+                  type="text"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  placeholder="Enter product name"
+                  className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
+                  aria-describedby="name-error"
+                  aria-invalid={field.state.meta.errors.length > 0}
+                />
+                <div id="name-error" aria-live="polite" aria-atomic="true">
+                  {field.state.meta.errors.map((error) => (
+                    <p
+                      key={String(error)}
+                      className="mt-2 text-sm text-red-500"
+                    >
+                      {String(error)}
+                    </p>
+                  ))}
+                </div>
+              </>
+            )}
+          </form.Field>
         </div>
 
-        {/* Category */}
         <div className="mb-4">
           <label
             htmlFor="categoryId"
@@ -164,179 +311,228 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
           >
             Category <span className="text-red-500">*</span>
           </label>
-          <select
-            id="categoryId"
-            name="categoryId"
-            value={selectedCategoryId}
-            onChange={(e) => setSelectedCategoryId(e.target.value)}
-            className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2"
-          >
-            <option value="">Select a category</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.fullPath}
-              </option>
-            ))}
-          </select>
-          <div id="categoryId-error" aria-live="polite" aria-atomic="true">
-            {state.errors?.categoryId?.map((error: string) => (
-              <p key={error} className="mt-2 text-sm text-red-500">
-                {error}
-              </p>
-            ))}
-          </div>
+          <form.Field name="categoryId">
+            {(field) => (
+              <>
+                <select
+                  id="categoryId"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2"
+                  aria-invalid={field.state.meta.errors.length > 0}
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.fullPath}
+                    </option>
+                  ))}
+                </select>
+                <div
+                  id="categoryId-error"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  {field.state.meta.errors.map((error) => (
+                    <p
+                      key={String(error)}
+                      className="mt-2 text-sm text-red-500"
+                    >
+                      {String(error)}
+                    </p>
+                  ))}
+                </div>
+              </>
+            )}
+          </form.Field>
         </div>
 
-        {/* Price */}
         <div className="mb-4">
           <label htmlFor="price" className="mb-2 block text-sm font-medium">
             Price ($) <span className="text-red-500">*</span>
           </label>
-          <input
-            id="price"
-            name="price"
-            type="number"
-            step="0.01"
-            defaultValue={product?.price}
-            placeholder="Enter price"
-            className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
-          />
-          <div id="price-error" aria-live="polite" aria-atomic="true">
-            {state.errors?.price?.map((error: string) => (
-              <p key={error} className="mt-2 text-sm text-red-500">
-                {error}
-              </p>
-            ))}
-          </div>
+          <form.Field name="price">
+            {(field) => (
+              <>
+                <input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  placeholder="Enter price"
+                  className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
+                  aria-invalid={field.state.meta.errors.length > 0}
+                />
+                <div id="price-error" aria-live="polite" aria-atomic="true">
+                  {field.state.meta.errors.map((error) => (
+                    <p
+                      key={String(error)}
+                      className="mt-2 text-sm text-red-500"
+                    >
+                      {String(error)}
+                    </p>
+                  ))}
+                </div>
+              </>
+            )}
+          </form.Field>
         </div>
 
-        {/* Featured Section */}
         <div className="mb-4 p-4 border border-dashed border-gray-300 rounded-lg bg-white">
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="isFeatured"
-              name="isFeatured"
-              checked={isFeatured}
-              onChange={(e) => setIsFeatured(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <label htmlFor="isFeatured" className="text-sm font-medium">
-              Featured Product
-            </label>
-          </div>
+          <form.Field name="isFeatured">
+            {(field) => (
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="isFeatured"
+                  checked={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="isFeatured" className="text-sm font-medium">
+                  Featured Product
+                </label>
+              </div>
+            )}
+          </form.Field>
           <p className="mt-1 text-xs text-gray-500 ml-7">
             Featured products are displayed on the front page
           </p>
         </div>
 
-        {/* Sale Section */}
         <div className="mb-4 p-4 border border-dashed border-gray-300 rounded-lg bg-white">
-          <div className="flex items-center gap-3 mb-4">
-            <input
-              type="checkbox"
-              id="isOnSale"
-              name="isOnSale"
-              checked={isOnSale}
-              onChange={(e) => setIsOnSale(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <label htmlFor="isOnSale" className="text-sm font-medium">
-              This product is on sale
-            </label>
-          </div>
+          <form.Field name="isOnSale">
+            {(field) => (
+              <div className="flex items-center gap-3 mb-4">
+                <input
+                  type="checkbox"
+                  id="isOnSale"
+                  checked={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="isOnSale" className="text-sm font-medium">
+                  This product is on sale
+                </label>
+              </div>
+            )}
+          </form.Field>
 
-          {isOnSale && (
+          {isOnSale ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor="salePercentage"
-                  className="mb-2 block text-sm font-medium"
-                >
-                  Sale Percentage (%)
-                </label>
-                <input
-                  id="salePercentage"
-                  name="salePercentage"
-                  type="number"
-                  min="0"
-                  max="100"
-                  defaultValue={product?.salePercentage || ""}
-                  placeholder="e.g. 20"
-                  className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Enter discount percentage (e.g., 20 for 20% off)
-                </p>
-              </div>
-              <div>
-                <label
-                  htmlFor="salePrice"
-                  className="mb-2 block text-sm font-medium"
-                >
-                  OR Sale Price ($)
-                </label>
-                <input
-                  id="salePrice"
-                  name="salePrice"
-                  type="number"
-                  step="0.01"
-                  defaultValue={product?.salePrice || ""}
-                  placeholder="Enter fixed sale price"
-                  className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Fixed sale price takes precedence if provided
-                </p>
-              </div>
+              <form.Field name="salePercentage">
+                {(field) => (
+                  <div>
+                    <label
+                      htmlFor="salePercentage"
+                      className="mb-2 block text-sm font-medium"
+                    >
+                      Sale Percentage (%)
+                    </label>
+                    <input
+                      id="salePercentage"
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      placeholder="e.g. 20"
+                      className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Enter discount percentage (e.g., 20 for 20% off)
+                    </p>
+                  </div>
+                )}
+              </form.Field>
+              <form.Field name="salePrice">
+                {(field) => (
+                  <div>
+                    <label
+                      htmlFor="salePrice"
+                      className="mb-2 block text-sm font-medium"
+                    >
+                      OR Sale Price ($)
+                    </label>
+                    <input
+                      id="salePrice"
+                      type="number"
+                      step="0.01"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      placeholder="Enter fixed sale price"
+                      className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Fixed sale price takes precedence if provided
+                    </p>
+                  </div>
+                )}
+              </form.Field>
             </div>
-          )}
+          ) : null}
         </div>
 
-        {/* Combo Section */}
         <div className="mb-4 p-4 border border-dashed border-primary/30 rounded-lg bg-white">
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="isCombo"
-              name="isCombo"
-              checked={isCombo}
-              onChange={(e) => setIsCombo(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-            />
-            <label htmlFor="isCombo" className="text-sm font-medium">
-              Show on Combo Page
-            </label>
-          </div>
+          <form.Field name="isCombo">
+            {(field) => (
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="isCombo"
+                  checked={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label htmlFor="isCombo" className="text-sm font-medium">
+                  Show on Combo Page
+                </label>
+              </div>
+            )}
+          </form.Field>
           <p className="mt-1 text-xs text-gray-500 ml-7">
             Products marked for combo will appear on the Combos page where
             customers can select 2 or 3 items for a bundle deal
           </p>
         </div>
 
-        {/* Stock */}
         <div className="mb-4">
           <label htmlFor="stock" className="mb-2 block text-sm font-medium">
             Stock <span className="text-red-500">*</span>
           </label>
-          <input
-            id="stock"
-            name="stock"
-            type="number"
-            defaultValue={product?.stock}
-            placeholder="Enter stock quantity"
-            className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
-          />
-          <div id="stock-error" aria-live="polite" aria-atomic="true">
-            {state.errors?.stock?.map((error: string) => (
-              <p key={error} className="mt-2 text-sm text-red-500">
-                {error}
-              </p>
-            ))}
-          </div>
+          <form.Field name="stock">
+            {(field) => (
+              <>
+                <input
+                  id="stock"
+                  type="number"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  placeholder="Enter stock quantity"
+                  className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
+                  aria-invalid={field.state.meta.errors.length > 0}
+                />
+                <div id="stock-error" aria-live="polite" aria-atomic="true">
+                  {field.state.meta.errors.map((error) => (
+                    <p
+                      key={String(error)}
+                      className="mt-2 text-sm text-red-500"
+                    >
+                      {String(error)}
+                    </p>
+                  ))}
+                </div>
+              </>
+            )}
+          </form.Field>
         </div>
 
-        {/* Product Sizes */}
         <div className="mb-4 p-4 border border-dashed border-gray-300 rounded-lg bg-white">
           <label className="mb-2 block text-sm font-medium">
             Available Sizes (Product-wide)
@@ -369,7 +565,6 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
           </p>
         </div>
 
-        {/* Color Variants Section */}
         <div className="mb-4 p-4 border border-dashed border-gray-300 rounded-lg bg-white">
           <h3 className="text-sm font-bold mb-4 uppercase tracking-wider text-gray-500">
             Color Variants
@@ -470,7 +665,6 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
                   </div>
                 </div>
 
-                {/* Variant Sizes */}
                 <div className="mt-3">
                   <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">
                     Sizes for this Color
@@ -513,7 +707,7 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
                       }
                       className="text-[10px]"
                     />
-                    {v.imageUrl && (
+                    {v.imageUrl ? (
                       <div className="mt-2 h-10 w-10 rounded border overflow-hidden bg-white">
                         <img
                           src={v.imageUrl}
@@ -521,7 +715,7 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
                           className="h-full w-full object-cover"
                         />
                       </div>
-                    )}
+                    ) : null}
                   </div>
                   <div>
                     <label className="block text-[10px] uppercase text-gray-400 font-bold mb-1">
@@ -585,7 +779,6 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
           </div>
         </div>
 
-        {/* Description */}
         <div className="mb-4">
           <label
             htmlFor="description"
@@ -593,36 +786,53 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
           >
             Description <span className="text-red-500">*</span>
           </label>
-          <textarea
-            id="description"
-            name="description"
-            defaultValue={product?.description}
-            placeholder="Enter description"
-            className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
-            rows={4}
-          />
-          <div id="description-error" aria-live="polite" aria-atomic="true">
-            {state.errors?.description?.map((error: string) => (
-              <p key={error} className="mt-2 text-sm text-red-500">
-                {error}
-              </p>
-            ))}
-          </div>
+          <form.Field name="description">
+            {(field) => (
+              <>
+                <textarea
+                  id="description"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  placeholder="Enter description"
+                  className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
+                  rows={4}
+                  aria-invalid={field.state.meta.errors.length > 0}
+                />
+                <div
+                  id="description-error"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  {field.state.meta.errors.map((error) => (
+                    <p
+                      key={String(error)}
+                      className="mt-2 text-sm text-red-500"
+                    >
+                      {String(error)}
+                    </p>
+                  ))}
+                </div>
+              </>
+            )}
+          </form.Field>
         </div>
 
-        {/* Size Chart */}
         <div className="mb-4">
           <label htmlFor="sizeChart" className="mb-2 block text-sm font-medium">
             Size Chart Image (Optional)
           </label>
           <input
+            ref={sizeChartRef}
             id="sizeChart"
-            name="sizeChart"
             type="file"
             accept="image/*"
             className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
           />
-          {product?.sizeChartUrl && (
+          {product &&
+          "sizeChartUrl" in product &&
+          typeof product.sizeChartUrl === "string" &&
+          product.sizeChartUrl ? (
             <div className="mt-2">
               <p className="text-xs text-gray-500 mb-1">Current size chart:</p>
               <div className="h-20 w-20 rounded border overflow-hidden bg-white">
@@ -632,33 +842,27 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
                   className="h-full w-full object-cover"
                 />
               </div>
-              <input
-                type="hidden"
-                name="existingSizeChartUrl"
-                value={product.sizeChartUrl}
-              />
             </div>
-          )}
+          ) : null}
           <p className="mt-1 text-xs text-gray-500">
             Upload an image of the size chart. This will show a &quot;Size
             Guide&quot; link on the product page.
           </p>
         </div>
 
-        {/* Images */}
         <div className="mb-4">
           <label htmlFor="images" className="mb-2 block text-sm font-medium">
             Product Images {!product && <span className="text-red-500">*</span>}
           </label>
           <input
+            ref={imagesRef}
             id="images"
-            name="images"
             type="file"
             accept="image/*"
             multiple
             className="peer block w-full rounded-md border border-gray-200 py-2 px-4 text-sm outline-2 placeholder:text-gray-500"
           />
-          {currentImages.length > 0 && (
+          {currentImages.length > 0 ? (
             <div className="mt-4 space-y-2">
               <p className="text-sm font-medium text-gray-700">
                 Existing images ({currentImages.length}):
@@ -666,7 +870,7 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
               <div className="flex flex-wrap gap-3">
                 {currentImages.map((img, i) => (
                   <div
-                    key={i}
+                    key={img}
                     className="relative group h-20 w-20 overflow-hidden rounded-md border border-gray-200 shadow-sm"
                   >
                     <img
@@ -696,7 +900,6 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
                         <path d="m6 6 12 12" />
                       </svg>
                     </button>
-                    <input type="hidden" name="existingImages" value={img} />
                   </div>
                 ))}
               </div>
@@ -705,17 +908,16 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
                 Product&quot;
               </p>
             </div>
-          )}
+          ) : null}
           <p className="mt-2 text-xs text-gray-400">
             Select multiple images to add more
           </p>
         </div>
 
-        {/* Global Error Message */}
         <div id="form-error" aria-live="polite" aria-atomic="true">
-          {state.message && (
-            <p className="mt-2 text-sm text-red-500">{state.message}</p>
-          )}
+          {serverMessage ? (
+            <p className="mt-2 text-sm text-red-500">{serverMessage}</p>
+          ) : null}
         </div>
       </div>
       <div className="mt-6 flex justify-end gap-4">
@@ -727,7 +929,8 @@ export default function ProductForm({ product, categories }: ProductFormProps) {
         </Link>
         <button
           type="submit"
-          className="flex h-10 items-center rounded-lg bg-blue-500 px-4 text-sm font-medium text-white transition-colors hover:bg-blue-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 active:bg-blue-600 aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+          disabled={isSubmitting}
+          className="flex h-10 items-center rounded-lg bg-blue-500 px-4 text-sm font-medium text-white transition-colors hover:bg-blue-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 active:bg-blue-600 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 disabled:opacity-50"
         >
           {product ? "Update Product" : "Create Product"}
         </button>

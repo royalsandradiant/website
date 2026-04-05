@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   CheckCircle,
@@ -11,33 +12,30 @@ import {
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect } from "react";
 import { getOrderBySessionId } from "@/app/lib/actions";
 import { useCart } from "@/app/lib/cart-context";
-
-type OrderDetails = {
-  id: string;
-  customerName: string;
-  customerEmail: string;
-  totalAmount: number;
-  status: string;
-  createdAt: Date;
-  items: { name: string; quantity: number; price: number }[];
-  shippingAddress: {
-    line1: string;
-    line2: string | null;
-    city: string;
-    postalCode: string;
-    country: string;
-  };
-};
 
 function SuccessContent() {
   const { clearCart } = useCart();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
-  const [order, setOrder] = useState<OrderDetails | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  const {
+    data: order,
+    isPending: loading,
+    isError,
+  } = useQuery({
+    queryKey: ["order", sessionId],
+    queryFn: () => {
+      if (!sessionId) {
+        throw new Error("Missing checkout session.");
+      }
+      return getOrderBySessionId(sessionId);
+    },
+    enabled: Boolean(sessionId),
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 4000),
+  });
 
   // Clear cart on mount (only once)
   useEffect(() => {
@@ -47,23 +45,6 @@ function SuccessContent() {
       localStorage.removeItem("cart");
     }
   }, [clearCart]);
-
-  // Fetch order details
-  useEffect(() => {
-    async function fetchOrder() {
-      if (sessionId) {
-        try {
-          const orderData = await getOrderBySessionId(sessionId);
-          setOrder(orderData);
-        } catch (error) {
-          console.error("Failed to fetch order:", error);
-        }
-      }
-      setLoading(false);
-    }
-
-    fetchOrder();
-  }, [sessionId]);
 
   return (
     <div className="min-h-screen bg-background pt-28 pb-20">
@@ -99,6 +80,13 @@ function SuccessContent() {
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : isError ? (
+            <div className="bg-secondary/30 border border-border rounded-lg p-6 mb-8 text-center">
+              <p className="text-foreground/70">
+                We couldn&apos;t load your order details. Check your email for
+                confirmation, or contact us if you need help.
+              </p>
             </div>
           ) : order ? (
             <motion.div
@@ -137,15 +125,17 @@ function SuccessContent() {
                     Items Ordered
                   </h3>
                   <div className="space-y-2">
-                    {order.items.map((item, index) => (
+                    {order.items.map((item) => (
                       <div
-                        key={index}
+                        key={item.id}
                         className="flex justify-between items-center py-2 border-b border-border/50 last:border-0"
                       >
                         <div>
                           <p className="text-foreground">{item.name}</p>
                           <p className="text-sm text-foreground/60">
                             Qty: {item.quantity}
+                            {item.color ? ` · ${item.color}` : ""}
+                            {item.size ? ` · ${item.size}` : ""}
                           </p>
                         </div>
                         <p className="font-medium text-foreground">
@@ -170,33 +160,56 @@ function SuccessContent() {
                   </div>
                 </div>
 
-                {/* Shipping Address */}
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    Shipping To
-                  </h3>
-                  <div className="bg-background/50 rounded-lg p-4">
-                    <p className="font-medium text-foreground">
-                      {order.customerName}
-                    </p>
-                    <p className="text-foreground/70">
-                      {order.shippingAddress.line1}
-                    </p>
-                    {order.shippingAddress.line2 && (
-                      <p className="text-foreground/70">
-                        {order.shippingAddress.line2}
+                {/* Shipping or store pickup */}
+                {order.isPickup ? (
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      Store pickup
+                    </h3>
+                    <div className="bg-background/50 rounded-lg p-4 space-y-3">
+                      <p className="font-medium text-foreground">
+                        {order.customerName}
                       </p>
-                    )}
-                    <p className="text-foreground/70">
-                      {order.shippingAddress.city},{" "}
-                      {order.shippingAddress.postalCode}
-                    </p>
-                    <p className="text-foreground/70">
-                      {order.shippingAddress.country}
-                    </p>
+                      <p className="text-sm text-foreground/70">
+                        We&apos;ll email you when your order is ready for
+                        pickup.
+                      </p>
+                      {order.pickupLocation ? (
+                        <div className="text-sm text-foreground/80 whitespace-pre-line border-t border-border/50 pt-3">
+                          {order.pickupLocation}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wider mb-3 flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      Shipping To
+                    </h3>
+                    <div className="bg-background/50 rounded-lg p-4">
+                      <p className="font-medium text-foreground">
+                        {order.customerName}
+                      </p>
+                      <p className="text-foreground/70">
+                        {order.shippingAddress.line1}
+                      </p>
+                      {order.shippingAddress.line2 ? (
+                        <p className="text-foreground/70">
+                          {order.shippingAddress.line2}
+                        </p>
+                      ) : null}
+                      <p className="text-foreground/70">
+                        {order.shippingAddress.city},{" "}
+                        {order.shippingAddress.postalCode}
+                      </p>
+                      <p className="text-foreground/70">
+                        {order.shippingAddress.country}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           ) : (
@@ -223,22 +236,43 @@ function SuccessContent() {
                 What&apos;s Next?
               </span>
             </div>
-            <ul className="text-sm text-foreground/60 space-y-2 text-left max-w-md mx-auto">
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">✓</span>
-                <span>You&apos;ll receive an order confirmation email</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">✓</span>
-                <span>We&apos;ll notify you when your order ships</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-0.5">✓</span>
-                <span>
-                  Tracking information will be included in the shipping email
-                </span>
-              </li>
-            </ul>
+            {order?.isPickup ? (
+              <ul className="text-sm text-foreground/60 space-y-2 text-left max-w-md mx-auto">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">✓</span>
+                  <span>You&apos;ll receive an order confirmation email</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">✓</span>
+                  <span>
+                    We&apos;ll let you know when your order is ready for pickup
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">✓</span>
+                  <span>
+                    Bring a copy of your confirmation email or order number
+                  </span>
+                </li>
+              </ul>
+            ) : (
+              <ul className="text-sm text-foreground/60 space-y-2 text-left max-w-md mx-auto">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">✓</span>
+                  <span>You&apos;ll receive an order confirmation email</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">✓</span>
+                  <span>We&apos;ll notify you when your order ships</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">✓</span>
+                  <span>
+                    Tracking information will be included in the shipping email
+                  </span>
+                </li>
+              </ul>
+            )}
           </div>
 
           {/* CTA Buttons */}

@@ -1491,6 +1491,15 @@ export async function getOrderBySessionId(sessionId: string) {
           : order.country,
     };
 
+    let pickupLocation: string | null = null;
+    if (order.isPickup) {
+      const storeSettings = await prisma.settings.findUnique({
+        where: { id: "global" },
+        select: { pickupAddress: true },
+      });
+      pickupLocation = storeSettings?.pickupAddress ?? null;
+    }
+
     return {
       id: order.id,
       customerName: order.customerName,
@@ -1498,20 +1507,17 @@ export async function getOrderBySessionId(sessionId: string) {
       totalAmount: Number(order.totalAmount),
       status: order.status,
       createdAt: order.createdAt,
-      items: order.items.map(
-        (item: {
-          product: { name: string };
-          quantity: number;
-          price: unknown;
-          size: string | null;
-        }) => ({
-          name: item.product.name,
-          quantity: item.quantity,
-          price: Number(item.price),
-          size: item.size,
-        }),
-      ),
+      items: order.items.map((item) => ({
+        id: item.id,
+        name: item.product.name,
+        quantity: item.quantity,
+        price: Number(item.price),
+        size: item.size,
+        color: item.color,
+      })),
       shippingAddress,
+      isPickup: order.isPickup,
+      pickupLocation,
     };
   } catch (error) {
     console.error("Error fetching order by session ID:", error);

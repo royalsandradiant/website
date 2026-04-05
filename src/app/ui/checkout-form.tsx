@@ -1,5 +1,7 @@
 "use client";
 
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation } from "@tanstack/react-query";
 import {
   CreditCard,
   Loader2,
@@ -12,6 +14,10 @@ import {
 import { useMemo, useState } from "react";
 import { createStripeCheckoutSession, validateCoupon } from "@/app/lib/actions";
 import { useCart } from "@/app/lib/cart-context";
+import {
+  type CheckoutFormValues,
+  checkoutFormSchema,
+} from "@/app/lib/checkout-form-schema";
 import type { ShippingRule } from "@/app/lib/definitions";
 import { inferShippingCategoryFromText } from "@/app/lib/shipping";
 
@@ -25,30 +31,102 @@ export default function CheckoutForm({
   pickupAddress?: string | null;
 }) {
   const { items, total } = useCart();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [submitError, setSubmitError] = useState("");
 
-  // Pickup State
-  const [isPickup, setIsPickup] = useState(false);
-  const [couponCode, setCouponCode] = useState("");
+  const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<{
     code: string;
     discountType: string;
     discountValue: number;
   } | null>(null);
   const [couponError, setCouponError] = useState("");
-  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
-  const [formData, setFormData] = useState({
-    customerName: "",
-    customerEmail: "",
-    addressLine1: "",
-    addressLine2: "",
-    city: "",
-    postalCode: "",
-    country: "",
+
+  const couponMutation = useMutation({
+    mutationFn: (code: string) => validateCoupon(code, total),
+    onMutate: () => setCouponError(""),
+    onSuccess: (result) => {
+      if (result.success && result.coupon) {
+        setAppliedCoupon(result.coupon);
+        setCouponInput("");
+      } else {
+        setCouponError(result.error || "Invalid coupon code.");
+      }
+    },
+    onError: () => setCouponError("Failed to validate coupon."),
   });
 
-  // Calculate Discount
+  const form = useForm({
+    defaultValues: {
+      isPickup: false,
+      customerName: "",
+      customerEmail: "",
+      addressLine1: "",
+      addressLine2: "",
+      city: "",
+      postalCode: "",
+      country: "",
+    } as CheckoutFormValues,
+    validators: {
+      onSubmit: checkoutFormSchema,
+    },
+    onSubmit: async ({ value }) => {
+      setSubmitError("");
+      try {
+        const result = await createStripeCheckoutSession(
+          items.map((item) => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            images: item.imagePath ? [item.imagePath] : [],
+            comboId: item.comboId,
+            originalProductId: item.originalProductId,
+            color: item.color,
+            size: item.size,
+          })),
+          value.isPickup
+            ? {
+                customerName: value.customerName,
+                customerEmail: value.customerEmail,
+                addressLine1: "STORE PICKUP",
+                city: "PICKUP",
+                postalCode: "PICKUP",
+                country: "US",
+              }
+            : {
+                customerName: value.customerName,
+                customerEmail: value.customerEmail,
+                addressLine1: value.addressLine1 ?? "",
+                addressLine2: value.addressLine2 ?? "",
+                city: value.city ?? "",
+                postalCode: value.postalCode ?? "",
+                country: value.country ?? "",
+              },
+          shippingCost,
+          appliedCoupon
+            ? {
+                code: appliedCoupon.code,
+                discountAmount: discountAmount,
+              }
+            : undefined,
+          value.isPickup,
+        );
+
+        if (result.url) {
+          window.location.href = result.url;
+        } else {
+          setSubmitError(result.error || "Failed to create checkout session");
+        }
+      } catch (err) {
+        console.error("Checkout error:", err);
+        setSubmitError("An unexpected error occurred. Please try again.");
+      }
+    },
+  });
+
+  const isPickup = useStore(form.store, (s) => s.values.isPickup);
+  const isSubmitting = useStore(form.store, (s) => s.isSubmitting);
+
   const discountAmount = useMemo(() => {
     if (!appliedCoupon) return 0;
     if (appliedCoupon.discountType === "PERCENTAGE") {
@@ -83,14 +161,12 @@ export default function CheckoutForm({
       return matchedRules;
     }
 
-    // Fall back to jewelry rules, then any rule, for legacy data safety.
     const jewelryRules = shippingRules.filter(
       (rule) => rule.category === "jewelry",
     );
     return jewelryRules.length > 0 ? jewelryRules : shippingRules;
   }, [shippingRules, cartShippingContext.effectiveCategory]);
 
-  // Calculate Shipping (Feature 4 & 5)
   const shippingCost = useMemo(() => {
     if (isPickup) return 0;
     if (activeShippingRules.length === 0) return 0;
@@ -112,118 +188,17 @@ export default function CheckoutForm({
 
   const finalTotal = subtotalAfterDiscount + shippingCost;
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const validateForm = () => {
-    const requiredFields: (keyof typeof formData)[] = [
-      "customerName",
-      "customerEmail",
-      "addressLine1",
-      "city",
-      "postalCode",
-      "country",
-    ];
-    for (const field of requiredFields) {
-      if (!formData[field]) {
-        setError(
-          `Please fill in your ${field.replace(/([A-Z])/g, " $1").toLowerCase()}.`,
-        );
-        document.getElementById(field)?.focus();
-        return false;
-      }
-    }
-
-    if (!formData.customerEmail.includes("@")) {
-      setError("Please enter a valid email address.");
-      document.getElementById("customerEmail")?.focus();
-      return false;
-    }
-    setError("");
-    return true;
-  };
-
-  const handleApplyCoupon = async () => {
-    if (!couponCode) return;
-    setIsValidatingCoupon(true);
-    setCouponError("");
-
-    const result = await validateCoupon(couponCode, total);
-    if (result.success && result.coupon) {
-      setAppliedCoupon(result.coupon);
-      setCouponCode("");
-    } else {
-      setCouponError(result.error || "Invalid coupon code.");
-    }
-    setIsValidatingCoupon(false);
+  const handleApplyCoupon = () => {
+    if (!couponInput.trim() || couponMutation.isPending) return;
+    couponMutation.mutate(couponInput.trim());
   };
 
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
   };
 
-  const handleCheckout = async () => {
-    if (!isPickup && !validateForm()) return;
-    if (isPickup && (!formData.customerName || !formData.customerEmail)) {
-      setError("Please fill in your name and email.");
-      return;
-    }
-
-    setIsLoading(true);
-    setError("");
-
-    try {
-      const result = await createStripeCheckoutSession(
-        items.map((item) => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          images: item.imagePath ? [item.imagePath] : [],
-          comboId: item.comboId,
-          originalProductId: item.originalProductId,
-          color: item.color,
-          size: item.size,
-        })),
-        isPickup
-          ? {
-              customerName: formData.customerName,
-              customerEmail: formData.customerEmail,
-              addressLine1: "STORE PICKUP",
-              city: "PICKUP",
-              postalCode: "PICKUP",
-              country: "US",
-            }
-          : formData,
-        shippingCost,
-        appliedCoupon
-          ? {
-              code: appliedCoupon.code,
-              discountAmount: discountAmount,
-            }
-          : undefined,
-        isPickup,
-      );
-
-      if (result.url) {
-        window.location.href = result.url;
-      } else {
-        setError(result.error || "Failed to create checkout session");
-      }
-    } catch (err) {
-      console.error("Checkout error:", err);
-      setError("An unexpected error occurred. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="grid gap-8 lg:grid-cols-2">
-      {/* Shipping Address Form */}
       <div>
         <div className="flex items-center justify-between mb-6">
           <h2 className="font-display text-2xl text-foreground">
@@ -235,7 +210,7 @@ export default function CheckoutForm({
           <div className="grid grid-cols-2 gap-4 mb-8">
             <button
               type="button"
-              onClick={() => setIsPickup(false)}
+              onClick={() => form.setFieldValue("isPickup", false)}
               className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
                 !isPickup
                   ? "border-primary bg-primary/5 text-primary"
@@ -247,7 +222,7 @@ export default function CheckoutForm({
             </button>
             <button
               type="button"
-              onClick={() => setIsPickup(true)}
+              onClick={() => form.setFieldValue("isPickup", true)}
               className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
                 isPickup
                   ? "border-primary bg-primary/5 text-primary"
@@ -260,47 +235,72 @@ export default function CheckoutForm({
           </div>
         )}
 
-        <div className="space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void form.handleSubmit();
+          }}
+          className="space-y-4"
+        >
           <div className="grid grid-cols-1 gap-4">
-            <div>
-              <label
-                htmlFor="customerName"
-                className="block text-sm font-medium text-foreground/70 mb-2"
-              >
-                Full Name *
-              </label>
-              <input
-                id="customerName"
-                type="text"
-                name="customerName"
-                value={formData.customerName}
-                onChange={handleChange}
-                className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
-                placeholder="John Doe"
-                required
-                autoComplete="name"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="customerEmail"
-                className="block text-sm font-medium text-foreground/70 mb-2"
-              >
-                Email *
-              </label>
-              <input
-                id="customerEmail"
-                type="email"
-                name="customerEmail"
-                value={formData.customerEmail}
-                onChange={handleChange}
-                className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
-                placeholder="john@example.com"
-                required
-                autoComplete="email"
-                inputMode="email"
-              />
-            </div>
+            <form.Field name="customerName">
+              {(field) => (
+                <div>
+                  <label
+                    htmlFor="customerName"
+                    className="block text-sm font-medium text-foreground/70 mb-2"
+                  >
+                    Full Name *
+                  </label>
+                  <input
+                    id="customerName"
+                    type="text"
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
+                    placeholder="John Doe"
+                    autoComplete="name"
+                    aria-invalid={field.state.meta.errors.length > 0}
+                  />
+                  {field.state.meta.errors[0] != null ? (
+                    <p className="mt-1 text-xs text-red-500">
+                      {String(field.state.meta.errors[0])}
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </form.Field>
+            <form.Field name="customerEmail">
+              {(field) => (
+                <div>
+                  <label
+                    htmlFor="customerEmail"
+                    className="block text-sm font-medium text-foreground/70 mb-2"
+                  >
+                    Email *
+                  </label>
+                  <input
+                    id="customerEmail"
+                    type="email"
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                    className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
+                    placeholder="john@example.com"
+                    autoComplete="email"
+                    inputMode="email"
+                    aria-invalid={field.state.meta.errors.length > 0}
+                  />
+                  {field.state.meta.errors[0] != null ? (
+                    <p className="mt-1 text-xs text-red-500">
+                      {String(field.state.meta.errors[0])}
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </form.Field>
           </div>
 
           {!isPickup ? (
@@ -308,108 +308,148 @@ export default function CheckoutForm({
               <h3 className="font-display text-xl text-foreground mt-6 mb-4">
                 Shipping Address
               </h3>
-              <div>
-                <label
-                  htmlFor="addressLine1"
-                  className="block text-sm font-medium text-foreground/70 mb-2"
-                >
-                  Address Line 1 *
-                </label>
-                <input
-                  id="addressLine1"
-                  type="text"
-                  name="addressLine1"
-                  value={formData.addressLine1}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
-                  placeholder="123 Main Street"
-                  required
-                  autoComplete="address-line1"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="addressLine2"
-                  className="block text-sm font-medium text-foreground/70 mb-2"
-                >
-                  Address Line 2 (Optional)
-                </label>
-                <input
-                  id="addressLine2"
-                  type="text"
-                  name="addressLine2"
-                  value={formData.addressLine2}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
-                  placeholder="Apt 4B"
-                  autoComplete="address-line2"
-                />
-              </div>
+              <form.Field name="addressLine1">
+                {(field) => (
+                  <div>
+                    <label
+                      htmlFor="addressLine1"
+                      className="block text-sm font-medium text-foreground/70 mb-2"
+                    >
+                      Address Line 1 *
+                    </label>
+                    <input
+                      id="addressLine1"
+                      type="text"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
+                      placeholder="123 Main Street"
+                      autoComplete="address-line1"
+                      aria-invalid={field.state.meta.errors.length > 0}
+                    />
+                    {field.state.meta.errors[0] != null ? (
+                      <p className="mt-1 text-xs text-red-500">
+                        {String(field.state.meta.errors[0])}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </form.Field>
+              <form.Field name="addressLine2">
+                {(field) => (
+                  <div>
+                    <label
+                      htmlFor="addressLine2"
+                      className="block text-sm font-medium text-foreground/70 mb-2"
+                    >
+                      Address Line 2 (Optional)
+                    </label>
+                    <input
+                      id="addressLine2"
+                      type="text"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
+                      placeholder="Apt 4B"
+                      autoComplete="address-line2"
+                    />
+                  </div>
+                )}
+              </form.Field>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label
-                    htmlFor="city"
-                    className="block text-sm font-medium text-foreground/70 mb-2"
-                  >
-                    City *
-                  </label>
-                  <input
-                    id="city"
-                    type="text"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
-                    placeholder="New York"
-                    required
-                    autoComplete="address-level2"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="postalCode"
-                    className="block text-sm font-medium text-foreground/70 mb-2"
-                  >
-                    Postal Code *
-                  </label>
-                  <input
-                    id="postalCode"
-                    type="text"
-                    name="postalCode"
-                    value={formData.postalCode}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
-                    placeholder="10001"
-                    required
-                    autoComplete="postal-code"
-                    inputMode="numeric"
-                  />
-                </div>
+                <form.Field name="city">
+                  {(field) => (
+                    <div>
+                      <label
+                        htmlFor="city"
+                        className="block text-sm font-medium text-foreground/70 mb-2"
+                      >
+                        City *
+                      </label>
+                      <input
+                        id="city"
+                        type="text"
+                        value={field.state.value}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        onBlur={field.handleBlur}
+                        className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
+                        placeholder="New York"
+                        autoComplete="address-level2"
+                        aria-invalid={field.state.meta.errors.length > 0}
+                      />
+                      {field.state.meta.errors[0] != null ? (
+                        <p className="mt-1 text-xs text-red-500">
+                          {String(field.state.meta.errors[0])}
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
+                </form.Field>
+                <form.Field name="postalCode">
+                  {(field) => (
+                    <div>
+                      <label
+                        htmlFor="postalCode"
+                        className="block text-sm font-medium text-foreground/70 mb-2"
+                      >
+                        Postal Code *
+                      </label>
+                      <input
+                        id="postalCode"
+                        type="text"
+                        value={field.state.value}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        onBlur={field.handleBlur}
+                        className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
+                        placeholder="10001"
+                        autoComplete="postal-code"
+                        inputMode="numeric"
+                        aria-invalid={field.state.meta.errors.length > 0}
+                      />
+                      {field.state.meta.errors[0] != null ? (
+                        <p className="mt-1 text-xs text-red-500">
+                          {String(field.state.meta.errors[0])}
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
+                </form.Field>
               </div>
-              <div>
-                <label
-                  htmlFor="country"
-                  className="block text-sm font-medium text-foreground/70 mb-2"
-                >
-                  Country *
-                </label>
-                <select
-                  id="country"
-                  name="country"
-                  value={formData.country}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
-                  required
-                  autoComplete="country"
-                >
-                  <option value="">Select a country</option>
-                  <option value="US">United States</option>
-                  <option value="CA">Canada</option>
-                  <option value="GB">United Kingdom</option>
-                  <option value="AU">Australia</option>
-                  <option value="IN">India</option>
-                </select>
-              </div>
+              <form.Field name="country">
+                {(field) => (
+                  <div>
+                    <label
+                      htmlFor="country"
+                      className="block text-sm font-medium text-foreground/70 mb-2"
+                    >
+                      Country *
+                    </label>
+                    <select
+                      id="country"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      className="w-full px-4 py-3 bg-secondary/50 border border-border rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-all outline-none"
+                      autoComplete="country"
+                      aria-invalid={field.state.meta.errors.length > 0}
+                    >
+                      <option value="">Select a country</option>
+                      <option value="US">United States</option>
+                      <option value="CA">Canada</option>
+                      <option value="GB">United Kingdom</option>
+                      <option value="AU">Australia</option>
+                      <option value="IN">India</option>
+                    </select>
+                    {field.state.meta.errors[0] != null ? (
+                      <p className="mt-1 text-xs text-red-500">
+                        {String(field.state.meta.errors[0])}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </form.Field>
             </div>
           ) : (
             <div className="mt-6 p-6 bg-primary/5 border border-primary/20 rounded-xl animate-in fade-in slide-in-from-top-2 duration-300">
@@ -430,24 +470,23 @@ export default function CheckoutForm({
               </div>
             </div>
           )}
-        </div>
-        {error && (
+        </form>
+
+        {submitError ? (
           <div
             className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4"
             role="alert"
           >
-            <p className="text-sm text-red-600">{error}</p>
+            <p className="text-sm text-red-600">{submitError}</p>
           </div>
-        )}
+        ) : null}
       </div>
 
-      {/* Order Summary & Payment */}
       <div>
         <h2 className="mb-6 font-display text-2xl text-foreground">
           Order Summary
         </h2>
         <div className="rounded-lg bg-secondary/30 border border-border p-6">
-          {/* Order Items */}
           <div className="space-y-4 mb-6">
             {items.map((item) => (
               <div
@@ -458,11 +497,11 @@ export default function CheckoutForm({
                   <span className="text-foreground/70">
                     {item.name} × {item.quantity}
                   </span>
-                  {item.size && (
+                  {item.size ? (
                     <span className="text-[10px] text-foreground/40 font-bold uppercase">
                       Size: {item.size}
                     </span>
-                  )}
+                  ) : null}
                 </div>
                 <span className="font-medium text-foreground">
                   ${(item.price * item.quantity).toFixed(2)}
@@ -471,16 +510,13 @@ export default function CheckoutForm({
             ))}
           </div>
 
-          {/* Divider */}
           <div className="border-t border-border my-4" />
 
-          {/* Subtotal */}
           <div className="flex justify-between text-sm mb-2 tabular-nums">
             <span className="text-foreground/70">Subtotal</span>
             <span className="text-foreground">${total.toFixed(2)}</span>
           </div>
 
-          {/* Coupon Section */}
           <div className="mt-4 mb-4">
             {!appliedCoupon ? (
               <div className="flex gap-2">
@@ -488,22 +524,27 @@ export default function CheckoutForm({
                   <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
                   <input
                     type="text"
-                    value={couponCode}
+                    value={couponInput}
                     onChange={(e) =>
-                      setCouponCode(e.target.value.toUpperCase())
+                      setCouponInput(e.target.value.toUpperCase())
                     }
                     placeholder="Coupon Code"
                     className="w-full pl-9 pr-4 py-2 bg-secondary/50 border border-border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                    onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleApplyCoupon();
+                      }
+                    }}
                   />
                 </div>
                 <button
                   type="button"
                   onClick={handleApplyCoupon}
-                  disabled={isValidatingCoupon || !couponCode}
+                  disabled={couponMutation.isPending || !couponInput.trim()}
                   className="px-4 py-2 bg-secondary text-foreground text-sm font-medium rounded-lg hover:bg-secondary/80 disabled:opacity-50 transition-colors"
                 >
-                  {isValidatingCoupon ? (
+                  {couponMutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     "Apply"
@@ -535,19 +576,19 @@ export default function CheckoutForm({
                 </button>
               </div>
             )}
-            {couponError && (
+            {couponError ? (
               <p className="mt-1 text-xs text-red-500">{couponError}</p>
-            )}
+            ) : null}
           </div>
 
-          {appliedCoupon && (
+          {appliedCoupon ? (
             <div className="flex justify-between text-sm mb-2 tabular-nums">
               <span className="text-foreground/70">Discount</span>
               <span className="text-primary">
                 -${discountAmount.toFixed(2)}
               </span>
             </div>
-          )}
+          ) : null}
 
           <div className="flex justify-between text-sm mb-4 tabular-nums">
             <span className="text-foreground/70">
@@ -571,13 +612,11 @@ export default function CheckoutForm({
               </p>
             )}
 
-          {/* Total */}
           <div className="flex justify-between text-lg font-semibold mb-6 tabular-nums">
             <span className="text-foreground">Total</span>
             <span className="text-primary">${finalTotal.toFixed(2)}</span>
           </div>
 
-          {/* Checkout Button */}
           <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg">
             <p className="text-[10px] text-red-600 font-bold uppercase tracking-widest text-center">
               All sales are final • No returns or exchanges
@@ -586,17 +625,19 @@ export default function CheckoutForm({
 
           <button
             type="button"
-            onClick={handleCheckout}
-            disabled={isLoading}
+            onClick={() => void form.handleSubmit()}
+            disabled={isSubmitting}
             className="w-full py-4 bg-primary text-primary-foreground font-semibold tracking-wide rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 outline-none"
-            aria-busy={isLoading}
+            aria-busy={isSubmitting}
           >
-            {isLoading && <Loader2 className="h-5 w-5 animate-spin" />}
-            <CreditCard className={`h-5 w-5 ${isLoading ? "hidden" : ""}`} />
+            {isSubmitting ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <CreditCard className="h-5 w-5" />
+            )}
             <span>Proceed to Payment</span>
           </button>
 
-          {/* Security Badge */}
           <div className="mt-4 flex items-center justify-center gap-2 text-xs text-foreground/50">
             <ShieldCheck className="h-4 w-4" />
             <span>Secured by Stripe</span>
