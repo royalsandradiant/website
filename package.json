@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "bun --bun next dev",
-    "build": "prisma generate && bun --bun next build",
+    "build": "prisma generate && prisma migrate deploy && bun --bun next build",
     "start": "bun --bun next start",
     "lint": "biome check",
     "format": "biome format --write",
